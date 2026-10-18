@@ -378,6 +378,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     // ---- top bar ---------------------------------------------------------------------------------
 
     private void updateGreeting() {
+        String room = getString(R.string.room_name);
+        if (!room.isEmpty()) {   // a fixed room name replaces the time-of-day greeting
+            greeting.setText(room);
+            return;
+        }
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         int res;
         if (hour < 5) res = R.string.good_night;

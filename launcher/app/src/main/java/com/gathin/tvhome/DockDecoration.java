@@ -1,6 +1,8 @@
 package com.gathin.tvhome;
 
 import android.graphics.Canvas;
+import android.graphics.LinearGradient;
+import android.graphics.Shader;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
@@ -16,15 +18,16 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
     private final float density;
     private final Paint band = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint edge = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint sheen = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rect = new RectF();
 
     DockDecoration(int dockSize, float density) {
         this.dockSize = dockSize;
         this.density = density;
-        band.setColor(0xFF141416);
+        band.setColor(0x38FFFFFF);   // translucent glass band (Liquid Glass look), the ambient glow shows through
         edge.setStyle(Paint.Style.STROKE);
         edge.setStrokeWidth(density);
-        edge.setColor(0x1FFFFFFF);
+        edge.setColor(0x4DFFFFFF);
     }
 
     @Override
@@ -63,5 +66,9 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
         float radius = 26 * density;
         c.drawRoundRect(rect, radius, radius, band);
         c.drawRoundRect(rect, radius, radius, edge);
+        // Specular top highlight: a bright-to-clear gradient over the upper part of the band (Liquid Glass look).
+        sheen.setShader(new LinearGradient(0, rect.top, 0, rect.top + rect.height() * 0.5f,
+                0x40FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+        c.drawRoundRect(rect, radius, radius, sheen);
     }
 }
