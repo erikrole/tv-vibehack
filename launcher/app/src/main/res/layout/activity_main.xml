@@ -29,10 +29,10 @@
         android:layout_marginStart="64dp"
         android:alpha="0"
         android:textColor="#FFFFFFFF"
-        android:textSize="48sp"
+        android:textSize="56sp"
         android:fontFamily="@font/inter"
-        android:fontVariationSettings="'wght' 300"
-        android:letterSpacing="-0.02"
+        android:fontVariationSettings="'wght' 700"
+        android:letterSpacing="-0.03"
         android:includeFontPadding="false"
         android:singleLine="true" />
 
@@ -64,10 +64,11 @@
                     android:id="@+id/greeting"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#A6FFFFFF"
-                    android:textSize="17sp"
+                    android:textColor="#CCFFFFFF"
+                    android:textSize="18sp"
                     android:fontFamily="@font/inter"
-                    android:fontVariationSettings="'wght' 500" />
+                    android:fontVariationSettings="'wght' 700"
+                    android:letterSpacing="-0.01" />
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -84,7 +85,7 @@
                         android:textColor="#FFFFFFFF"
                         android:textSize="52sp"
                         android:fontFamily="@font/inter"
-                        android:fontVariationSettings="'wght' 300"
+                        android:fontVariationSettings="'wght' 500"
                         android:letterSpacing="-0.04"
                         android:includeFontPadding="false" />
 
@@ -124,7 +125,7 @@
                         android:textColor="#A6FFFFFF"
                         android:textSize="18sp"
                         android:fontFamily="@font/inter"
-                        android:fontVariationSettings="'wght' 400" />
+                        android:fontVariationSettings="'wght' 600" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -213,7 +214,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="20dp"
-            android:minWidth="300dp"
+            android:minWidth="272dp"
             android:paddingStart="20dp"
             android:paddingEnd="18dp"
             android:paddingTop="14dp"
@@ -236,7 +237,7 @@
                     android:textColor="#99FFFFFF"
                     android:textSize="14sp"
                     android:fontFamily="@font/inter"
-                    android:fontVariationSettings="'wght' 500" />
+                    android:fontVariationSettings="'wght' 600" />
 
                 <TextView
                     android:id="@+id/badgersGame"
@@ -244,10 +245,10 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
                     android:textColor="#FFFFFFFF"
-                    android:textSize="24sp"
+                    android:textSize="28sp"
                     android:fontFamily="@font/inter"
-                    android:fontVariationSettings="'wght' 600"
-                    android:letterSpacing="-0.01" />
+                    android:fontVariationSettings="'wght' 800"
+                    android:letterSpacing="-0.02" />
 
                 <TextView
                     android:id="@+id/badgersWhen"
@@ -257,7 +258,7 @@
                     android:textColor="#B3FFFFFF"
                     android:textSize="15sp"
                     android:fontFamily="@font/inter"
-                    android:fontVariationSettings="'wght' 400" />
+                    android:fontVariationSettings="'wght' 500" />
             </LinearLayout>
 
             <TextView
@@ -273,7 +274,7 @@
                 android:textColor="#FFFFFFFF"
                 android:textSize="14sp"
                 android:fontFamily="@font/inter"
-                android:fontVariationSettings="'wght' 500" />
+                android:fontVariationSettings="'wght' 700" />
         </LinearLayout>
 
         <LinearLayout

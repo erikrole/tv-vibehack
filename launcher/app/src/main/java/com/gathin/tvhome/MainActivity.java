@@ -415,7 +415,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private LinearLayout.LayoutParams chipParams() {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, (int) (44 * density));
-        lp.setMarginEnd((int) (10 * density));
+        lp.setMarginEnd((int) (8 * density));
         return lp;
     }
 
