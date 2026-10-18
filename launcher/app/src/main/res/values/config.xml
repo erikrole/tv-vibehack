@@ -43,14 +43,16 @@
 
     <!-- Home Assistant scene row. Entity ids and labels, in order. Needs ha.url and ha.token in launcher/local.properties. -->
     <string-array name="ha_scene_ids">
-        <item>scene.good_morning</item>
-        <item>scene.workout</item>
-        <item>scene.bedtime</item>
+        <item>scene.home_theater_movie</item>
+        <item>scene.home_theater_intermission</item>
+        <item>scene.home_theater_lights_up</item>
+        <item>scene.home_theater_game_day</item>
     </string-array>
     <string-array name="ha_scene_labels">
-        <item>Morning</item>
-        <item>Workout</item>
-        <item>Bedtime</item>
+        <item>Movie</item>
+        <item>Intermission</item>
+        <item>Lights up</item>
+        <item>Game day</item>
     </string-array>
 
     <!-- The TV in Home Assistant, used by the sleep timer (media_player.turn_off). -->
