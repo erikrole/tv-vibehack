@@ -60,12 +60,12 @@
     <!-- The TV in Home Assistant, used by the sleep timer (media_player.turn_off). -->
     <string name="ha_tv_entity" translatable="false">media_player.home_theater_hisense_tv</string>
 
-    <!-- ESPN team schedules checked for the Badgers card; the earliest upcoming game wins. Team id 275 = Wisconsin. -->
-    <string-array name="badgers_schedules">
-        <item>football/college-football</item>
-        <item>basketball/mens-college-basketball</item>
-        <item>basketball/womens-college-basketball</item>
-        <item>hockey/mens-college-hockey</item>
+    <!-- Teams shown in the sports row: "Label;sport/league[,sport/league...];ESPN team id". The earliest upcoming
+         (or live) game across the listed leagues is shown. ESPN's public schedule API, no key needed. -->
+    <string-array name="sports_teams">
+        <item>Badgers;football/college-football,basketball/mens-college-basketball,basketball/womens-college-basketball,hockey/mens-college-hockey;275</item>
+        <item>Packers;football/nfl;9</item>
+        <item>Brewers;baseball/mlb;8</item>
+        <item>Bucks;basketball/nba;15</item>
     </string-array>
-    <string name="badgers_team_id" translatable="false">275</string>
 </resources>

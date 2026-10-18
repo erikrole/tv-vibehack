@@ -25,6 +25,63 @@ final class Ha {
         return !BuildConfig.HA_URL.isEmpty() && !BuildConfig.HA_TOKEN.isEmpty();
     }
 
+    /** Renders a Home Assistant template and returns the text (blocking: call off the main thread), or null. */
+    static String renderTemplate(String template) {
+        if (!configured()) return null;
+        HttpURLConnection c = null;
+        try {
+            String base = BuildConfig.HA_URL.replaceAll("/+$", "");
+            c = (HttpURLConnection) new URL(base + "/api/template").openConnection();
+            c.setConnectTimeout(4000);
+            c.setReadTimeout(6000);
+            c.setRequestMethod("POST");
+            c.setRequestProperty("Authorization", "Bearer " + BuildConfig.HA_TOKEN);
+            c.setRequestProperty("Content-Type", "application/json");
+            c.setDoOutput(true);
+            String body = "{\"template\":\"" + template.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"}";
+            try (OutputStream os = c.getOutputStream()) {
+                os.write(body.getBytes(StandardCharsets.UTF_8));
+            }
+            if (c.getResponseCode() != 200) return null;
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[4096];
+            int n;
+            try (java.io.InputStream in = c.getInputStream()) {
+                while ((n = in.read(buf)) > 0) bos.write(buf, 0, n);
+            }
+            return bos.toString("UTF-8");
+        } catch (Exception e) {
+            return null;
+        } finally {
+            if (c != null) c.disconnect();
+        }
+    }
+
+    /** GET a Home Assistant path (e.g. /api/camera_proxy/camera.x) and return the bytes (blocking), or null. */
+    static byte[] getBytes(String path) {
+        if (!configured()) return null;
+        HttpURLConnection c = null;
+        try {
+            String base = BuildConfig.HA_URL.replaceAll("/+$", "");
+            c = (HttpURLConnection) new URL(base + path).openConnection();
+            c.setConnectTimeout(4000);
+            c.setReadTimeout(8000);
+            c.setRequestProperty("Authorization", "Bearer " + BuildConfig.HA_TOKEN);
+            if (c.getResponseCode() != 200) return null;
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            try (java.io.InputStream in = c.getInputStream()) {
+                while ((n = in.read(buf)) > 0) bos.write(buf, 0, n);
+            }
+            return bos.toByteArray();
+        } catch (Exception e) {
+            return null;
+        } finally {
+            if (c != null) c.disconnect();
+        }
+    }
+
     /** POST /api/states/{entityId}: creates or updates a state (not persisted across Home Assistant restarts). */
     static void setState(String entityId, String state, String attributesJson, Callback cb) {
         if (!configured()) {

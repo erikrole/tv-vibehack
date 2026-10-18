@@ -25,6 +25,8 @@ adb -s "$TARGET" install -r launcher/app/build/outputs/apk/debug/app-debug.apk
 tv pm grant com.gathin.tvhome android.permission.ACCESS_FINE_LOCATION || true
 echo "== playback reporting (notification access lets the launcher read media sessions)"
 tv cmd notification allow_listener com.gathin.tvhome/com.gathin.tvhome.PlaybackReporter || true
+echo "== alert cards over other apps (doorbell, leak, security)"
+tv appops set com.gathin.tvhome SYSTEM_ALERT_WINDOW allow || true
 
 if [ "${1:-}" != "--no-debloat" ]; then
   echo "== disable packages from $LIST (reversible)"

@@ -78,8 +78,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private String networkLabel = "";
     private View infoRow, controlCenter;
     private LinearLayout sceneRow, ccInputs, ccSleep;
-    private TextView btnControl, ccStatus, badgersTitle, badgersGame;
-    private View badgersCard;
+    private TextView btnControl, ccStatus;
+    private LinearLayout sportsRow;
     private boolean ccOpen;
     /** Sleep timer: when it fires the TV is turned off through Home Assistant. Lives as long as the process. */
     private static long sleepAtMs = 0L;
@@ -141,9 +141,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnControl = findViewById(R.id.btnControl);
         infoRow = findViewById(R.id.infoRow);
         sceneRow = findViewById(R.id.sceneRow);
-        badgersCard = findViewById(R.id.badgersCard);
-        badgersTitle = findViewById(R.id.badgersTitle);
-        badgersGame = findViewById(R.id.badgersGame);
+        sportsRow = findViewById(R.id.sportsRow);
         controlCenter = findViewById(R.id.controlCenter);
         ccInputs = findViewById(R.id.ccInputs);
         ccSleep = findViewById(R.id.ccSleep);
@@ -155,7 +153,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 findViewById(id).setNextFocusDownId(firstChip);
             }
         }
-        Badgers.load(this, this::showGame);
+        Sports.load(this, this::showGames);
 
         grid = findViewById(R.id.grid);
         grid.setLayoutManager(new GridLayoutManager(this, COLUMNS));
@@ -337,18 +335,34 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
-    private void showGame(Badgers.Game g) {
-        if (g == null) {
-            badgersCard.setVisibility(View.GONE);
+    private void showGames(java.util.List<Sports.Game> games) {
+        sportsRow.removeAllViews();
+        if (games == null || games.isEmpty()) {
+            sportsRow.setVisibility(View.GONE);
             return;
         }
-        String net = g.network.isEmpty() ? "" : " · " + g.network;
-        badgersTitle.setText(String.format(Locale.US, "Badgers %s%s", g.sport.toLowerCase(Locale.US), net));
-        badgersGame.setText(String.format(Locale.US, "%s %s", g.home ? "vs" : "at", g.opponent));
-        ((TextView) findViewById(R.id.badgersWhen)).setText(
-                new SimpleDateFormat("EEEE, MMM d · h:mm a", Locale.US).format(new Date(g.startMs)));
-        ((TextView) findViewById(R.id.badgersCountdown)).setText(countdown(g.startMs));
-        badgersCard.setVisibility(View.VISIBLE);
+        int shown = 0;
+        for (Sports.Game g : games) {
+            if (shown == 4) break;
+            View card = getLayoutInflater().inflate(R.layout.item_sport, sportsRow, false);
+            String net = g.network.isEmpty() ? "" : " · " + g.network;
+            ((TextView) card.findViewById(R.id.team)).setText(
+                    g.live ? "● LIVE · " + g.team + " " + g.sport : g.team + " " + g.sport + net);
+            ((TextView) card.findViewById(R.id.matchup)).setText(
+                    g.live && !g.score.isEmpty()
+                            ? String.format(Locale.US, "%s %s %s", g.home ? "vs" : "at", g.opponent, g.score)
+                            : String.format(Locale.US, "%s %s", g.home ? "vs" : "at", g.opponent));
+            String when = g.live ? g.detail
+                    : countdown(g.startMs) + " · " + new SimpleDateFormat("EEE h:mm a", Locale.US).format(new Date(g.startMs));
+            ((TextView) card.findViewById(R.id.when)).setText(when);
+            if (g.live) {
+                card.setBackgroundResource(R.drawable.live_bg);
+                ((TextView) card.findViewById(R.id.team)).setTextColor(0xFFFF8A80);
+            }
+            sportsRow.addView(card);
+            shown++;
+        }
+        sportsRow.setVisibility(View.VISIBLE);
     }
 
     /** "Today", "Tomorrow" or "In 6 days", counted in calendar days. */

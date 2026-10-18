@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginEnd="12dp"
+    android:minWidth="188dp"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="11dp"
+    android:paddingBottom="11dp"
+    android:orientation="vertical"
+    android:background="@drawable/card_bg">
+
+    <TextView
+        android:id="@+id/team"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#99FFFFFF"
+        android:textSize="12sp"
+        android:fontFamily="@font/inter"
+        android:fontVariationSettings="'wght' 600"
+        android:singleLine="true" />
+
+    <TextView
+        android:id="@+id/matchup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFFFF"
+        android:textSize="20sp"
+        android:fontFamily="@font/inter"
+        android:fontVariationSettings="'wght' 800"
+        android:letterSpacing="-0.02"
+        android:singleLine="true" />
+
+    <TextView
+        android:id="@+id/when"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#B3FFFFFF"
+        android:textSize="13sp"
+        android:fontFamily="@font/inter"
+        android:fontVariationSettings="'wght' 500"
+        android:singleLine="true" />
+</LinearLayout>

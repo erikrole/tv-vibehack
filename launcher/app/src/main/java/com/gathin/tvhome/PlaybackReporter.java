@@ -26,6 +26,7 @@ public class PlaybackReporter extends NotificationListenerService {
     private ComponentName me;
     private final List<MediaController> watched = new ArrayList<>();
     private String lastSent = "";
+    private AlertWatcher alerts;
 
     private final MediaSessionManager.OnActiveSessionsChangedListener sessionsListener = controllers -> {
         attach(controllers);
@@ -59,10 +60,13 @@ public class PlaybackReporter extends NotificationListenerService {
             return;   // notification access not granted yet
         }
         refresh();
+        if (alerts == null) alerts = new AlertWatcher(this);
+        alerts.start();
     }
 
     @Override
     public void onListenerDisconnected() {
+        if (alerts != null) alerts.stop();
         detachAll();
         if (sessions != null) sessions.removeOnActiveSessionsChangedListener(sessionsListener);
     }

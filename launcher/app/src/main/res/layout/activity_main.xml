@@ -205,77 +205,16 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="64dp"
-        android:layout_marginTop="132dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:layout_marginTop="114dp"
+        android:orientation="vertical">
 
         <LinearLayout
-            android:id="@+id/badgersCard"
+            android:id="@+id/sportsRow"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="14dp"
-            android:minWidth="272dp"
-            android:paddingStart="20dp"
-            android:paddingEnd="18dp"
-            android:paddingTop="14dp"
-            android:paddingBottom="14dp"
-            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp"
             android:orientation="horizontal"
-            android:background="@drawable/card_bg"
-            android:visibility="gone">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/badgersTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="#99FFFFFF"
-                    android:textSize="13sp"
-                    android:fontFamily="@font/inter"
-                    android:fontVariationSettings="'wght' 600" />
-
-                <TextView
-                    android:id="@+id/badgersGame"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="24sp"
-                    android:fontFamily="@font/inter"
-                    android:fontVariationSettings="'wght' 800"
-                    android:letterSpacing="-0.02" />
-
-                <TextView
-                    android:id="@+id/badgersWhen"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:textColor="#B3FFFFFF"
-                    android:textSize="14sp"
-                    android:fontFamily="@font/inter"
-                    android:fontVariationSettings="'wght' 500" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/badgersCountdown"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="18dp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:paddingTop="5dp"
-                android:paddingBottom="5dp"
-                android:background="@drawable/count_bg"
-                android:textColor="#FFFFFFFF"
-                android:textSize="13sp"
-                android:fontFamily="@font/inter"
-                android:fontVariationSettings="'wght' 700" />
-        </LinearLayout>
+            android:visibility="gone" />
 
         <LinearLayout
             android:id="@+id/sceneRow"
