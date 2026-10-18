@@ -66,7 +66,10 @@ final class AlertWatcher {
             + "'doorbell_person': is_state('binary_sensor.doorbell_person_detected','on'),"
             + "'driveway': is_state('binary_sensor.driveway_person_detected','on'),"
             + "'garage': is_state('binary_sensor.garage_person_detected','on'),"
-            + "'patio': is_state('binary_sensor.patio_person_detected','on')"
+            + "'patio': is_state('binary_sensor.patio_person_detected','on'),"
+            + "'n': states('input_text.tv_notification'),"
+            + "'play': states('sensor.home_theater_playback'),"
+            + "'mode': states('input_select.house_mode')"
             + "} | tojson }}";
 
     private final Context ctx;
@@ -76,6 +79,22 @@ final class AlertWatcher {
     private final float density;
     private View overlay;
     private volatile boolean running;
+    /** Notifications from Home Assistant (script.tv_notify) and local ones (game starts), waiting to be shown. */
+    private final java.util.ArrayList<Pending> queue = new java.util.ArrayList<>();
+    private long lastNotifId = -1;          // -1 until the first poll: what is already there is not replayed
+    private long busyUntil;                 // the overlay is showing until then
+    private static final long INFO_MAX_AGE_MS = 30 * 60 * 1000L;
+
+    private static final class Pending {
+        final Alert alert;
+        final boolean high;
+        final long queuedAt = System.currentTimeMillis();
+
+        Pending(Alert alert, boolean high) {
+            this.alert = alert;
+            this.high = high;
+        }
+    }
 
     private final Runnable poll = new Runnable() {
         @Override
@@ -149,6 +168,67 @@ final class AlertWatcher {
             }
             if (sticky != null) show(sticky);
             else if (overlay != null && overlay.getTag() instanceof Boolean && (Boolean) overlay.getTag()) main.post(this::hide);
+            handleNotifications(o.optString("n", ""), "playing".equals(o.optString("play")), "Sleep".equals(o.optString("mode")));
+        } catch (Exception ignored) {
+        }
+    }
+
+    /** Picks up a new script.tv_notify message, adds game-start reminders, and shows whatever is allowed right now. */
+    private void handleNotifications(String raw, boolean playing, boolean sleeping) {
+        try {
+            if (raw != null && raw.startsWith("{")) {
+                JSONObject n = new JSONObject(raw);
+                long id = n.optLong("i", 0);
+                if (lastNotifId == -1) {
+                    lastNotifId = id;       // first poll: remember, don't replay an old notification
+                } else if (id != lastNotifId) {
+                    lastNotifId = id;
+                    boolean high = "high".equals(n.optString("l"));
+                    long ms = Math.max(3, Math.min(30, n.optInt("s", high ? 15 : 8))) * 1000L;
+                    queue.add(new Pending(new Alert("n" + id, n.optString("t"), n.optString("m"), null, false,
+                            high ? 0xFFFF9F0A : 0xFF64D2FF, ms), high));
+                }
+            } else if (lastNotifId == -1) {
+                lastNotifId = 0;
+            }
+        } catch (Exception ignored) {
+        }
+        queueGameStarts();
+        long now = System.currentTimeMillis();
+        for (java.util.Iterator<Pending> it = queue.iterator(); it.hasNext(); ) {
+            Pending p = it.next();
+            if (!p.high && (sleeping || now - p.queuedAt > INFO_MAX_AGE_MS)) it.remove();   // stale or quiet hours
+        }
+        if (now < busyUntil) return;
+        for (java.util.Iterator<Pending> it = queue.iterator(); it.hasNext(); ) {
+            Pending p = it.next();
+            if (!p.high && playing) continue;   // info waits until you pause or stop
+            it.remove();
+            busyUntil = now + p.alert.showMs + 800;
+            show(p.alert);
+            return;
+        }
+    }
+
+    /** "Packers kick off in 10 minutes", once per game, from the cached sports schedule. */
+    private void queueGameStarts() {
+        try {
+            org.json.JSONArray games = new org.json.JSONArray(
+                    ctx.getSharedPreferences("sports", Context.MODE_PRIVATE).getString("games", "[]"));
+            android.content.SharedPreferences sp = ctx.getSharedPreferences("sports_notified", Context.MODE_PRIVATE);
+            long now = System.currentTimeMillis();
+            for (int i = 0; i < games.length(); i++) {
+                JSONObject g = games.getJSONObject(i);
+                long start = g.optLong("start");
+                long until = start - now;
+                String key = g.optString("team") + start;
+                if (g.optBoolean("live") || until > 11 * 60_000L || until < 8 * 60_000L || sp.getBoolean(key, false)) continue;
+                sp.edit().putBoolean(key, true).apply();
+                String net = g.optString("net");
+                queue.add(new Pending(new Alert("g" + key, g.optString("team") + " kick off in 10 minutes",
+                        (g.optBoolean("home", true) ? "vs " : "at ") + g.optString("opp") + (net.isEmpty() ? "" : " · " + net),
+                        null, false, 0xFF30D158, 14000), true));
+            }
         } catch (Exception ignored) {
         }
     }
