@@ -36,7 +36,7 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
         int pos = parent.getChildAdapterPosition(view);
         if (pos >= 0 && pos < dockSize) {
             outRect.top = (int) (6 * density);
-            outRect.bottom = (int) (12 * density);
+            outRect.bottom = (int) (36 * density);   // keeps the next row of apps below the screen edge until you press Down
         }
     }
 
