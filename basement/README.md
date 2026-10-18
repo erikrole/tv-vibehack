@@ -36,7 +36,7 @@ Scene buttons and the TV entity are listed in `launcher/app/src/main/res/values/
 
 ## Using it
 
-- **Control Center:** the sliders pill in the top bar, or the remote's Menu key. Direct HDMI buttons and the
+- **Control Center:** the sliders pill in the top bar (on the Hisense the Menu key opens the TV's own menu, so the pill is the way in). Direct HDMI buttons and the
   sleep timer.
 - **Badgers card:** next Wisconsin game from ESPN's public schedule, fetched once per launch and cached six hours.
   Which sports are checked: `badgers_schedules` in `config.xml`.

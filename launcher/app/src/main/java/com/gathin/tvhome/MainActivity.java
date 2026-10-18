@@ -159,6 +159,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         ccSleep = findViewById(R.id.ccSleep);
         ccStatus = findViewById(R.id.ccStatus);
         buildScenes();
+        if (sceneRow.getChildCount() > 0) {
+            int firstChip = sceneRow.getChildAt(0).getId();
+            for (int id : new int[]{R.id.btnInputs, R.id.btnWifi, R.id.btnControl, R.id.btnSettings}) {
+                findViewById(id).setNextFocusDownId(firstChip);
+            }
+        }
         Badgers.load(this, this::showGame);
 
         grid = findViewById(R.id.grid);
@@ -320,8 +326,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             chip.setText(labels[i]);
             chip.setOnClickListener(v -> Ha.call("scene", "turn_on", id, (ok, msg) ->
                     Toast.makeText(this, ok ? ((TextView) v).getText() + " on" : msg, Toast.LENGTH_SHORT).show()));
-            chip.setOnKeyListener((v, keyCode, event) -> event.getAction() == KeyEvent.ACTION_DOWN
-                    && keyCode == KeyEvent.KEYCODE_DPAD_UP);   // top of the screen: pills are reached from the right
+            chip.setId(View.generateViewId());
+            chip.setOnKeyListener((v, keyCode, event) -> {
+                if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+                if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {   // up from the scene row goes to the top-bar pills
+                    findViewById(R.id.btnInputs).requestFocus();
+                    return true;
+                }
+                return keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v == sceneRow.getChildAt(0);   // don't fall off the left edge
+            });
             chip.setLayoutParams(chipParams());
             chipFocus(chip);
             sceneRow.addView(chip);
