@@ -38,6 +38,7 @@
 
     <LinearLayout
         android:id="@+id/mainContent"
+        android:clipChildren="false"
         android:clipToPadding="false"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -48,10 +49,12 @@
 
         <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:clipChildren="false">
 
             <LinearLayout
                 android:id="@+id/leftBlock"
+        android:clipChildren="false"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentStart="true"
@@ -127,6 +130,7 @@
 
             <LinearLayout
                 android:id="@+id/topButtons"
+        android:clipChildren="false"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentEnd="true"
@@ -196,6 +200,7 @@
     <!-- Next Badgers game and Home Assistant scenes, between the clock and the top shelf. -->
     <LinearLayout
         android:id="@+id/infoRow"
+        android:clipChildren="false"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="64dp"
@@ -273,6 +278,7 @@
 
         <LinearLayout
             android:id="@+id/sceneRow"
+        android:clipChildren="false"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal" />
@@ -290,6 +296,7 @@
 
         <LinearLayout
             android:id="@+id/ccPanel"
+        android:clipChildren="false"
             android:layout_width="620dp"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
@@ -307,6 +314,7 @@
 
             <LinearLayout
                 android:id="@+id/ccInputs"
+        android:clipChildren="false"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal" />
@@ -317,6 +325,7 @@
 
             <LinearLayout
                 android:id="@+id/ccSleep"
+        android:clipChildren="false"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal" />
