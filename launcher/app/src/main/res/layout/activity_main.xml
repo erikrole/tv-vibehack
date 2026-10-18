@@ -29,7 +29,7 @@
         android:layout_marginStart="64dp"
         android:alpha="0"
         android:textColor="#FFFFFFFF"
-        android:textSize="56sp"
+        android:textSize="44sp"
         android:fontFamily="@font/inter"
         android:fontVariationSettings="'wght' 700"
         android:letterSpacing="-0.03"
@@ -65,7 +65,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="#CCFFFFFF"
-                    android:textSize="18sp"
+                    android:textSize="16sp"
                     android:fontFamily="@font/inter"
                     android:fontVariationSettings="'wght' 700"
                     android:letterSpacing="-0.01" />
@@ -83,7 +83,7 @@
                         android:format12Hour="h:mm"
                         android:format24Hour="HH:mm"
                         android:textColor="#FFFFFFFF"
-                        android:textSize="52sp"
+                        android:textSize="44sp"
                         android:fontFamily="@font/inter"
                         android:fontVariationSettings="'wght' 500"
                         android:letterSpacing="-0.04"
@@ -123,7 +123,7 @@
                         android:format12Hour="@string/date_format"
                         android:format24Hour="@string/date_format"
                         android:textColor="#A6FFFFFF"
-                        android:textSize="18sp"
+                        android:textSize="16sp"
                         android:fontFamily="@font/inter"
                         android:fontVariationSettings="'wght' 600" />
                 </LinearLayout>
@@ -235,7 +235,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="#99FFFFFF"
-                    android:textSize="14sp"
+                    android:textSize="13sp"
                     android:fontFamily="@font/inter"
                     android:fontVariationSettings="'wght' 600" />
 
@@ -245,7 +245,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
                     android:textColor="#FFFFFFFF"
-                    android:textSize="28sp"
+                    android:textSize="24sp"
                     android:fontFamily="@font/inter"
                     android:fontVariationSettings="'wght' 800"
                     android:letterSpacing="-0.02" />
@@ -256,7 +256,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
                     android:textColor="#B3FFFFFF"
-                    android:textSize="15sp"
+                    android:textSize="14sp"
                     android:fontFamily="@font/inter"
                     android:fontVariationSettings="'wght' 500" />
             </LinearLayout>
@@ -272,7 +272,7 @@
                 android:paddingBottom="5dp"
                 android:background="@drawable/count_bg"
                 android:textColor="#FFFFFFFF"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:fontFamily="@font/inter"
                 android:fontVariationSettings="'wght' 700" />
         </LinearLayout>
