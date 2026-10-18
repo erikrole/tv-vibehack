@@ -34,6 +34,9 @@ tv settings put global stay_on_while_plugged_in 7
 tv settings put system screen_off_timeout 2147483647
 tv settings put global app_standby_enabled 0
 
+echo "== snappier system animations (restore.sh resets them to 1.0)"
+for k in window_animation_scale transition_animation_scale animator_duration_scale; do tv settings put global $k 0.5; done
+
 echo "== make it home"
 tv cmd package set-home-activity --user 0 com.gathin.tvhome/.MainActivity
 tv pm disable-user --user 0 "$STOCK"

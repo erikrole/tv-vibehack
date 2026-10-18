@@ -83,7 +83,10 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         this.ctx = ctx;
         this.listener = listener;
         this.dockSize = dockSize;
-        this.favourites = Arrays.asList(ctx.getResources().getStringArray(R.array.dock_apps));
+        // Dock apps first, then the grid order from config; everything else follows alphabetically.
+        List<String> order = new ArrayList<>(Arrays.asList(ctx.getResources().getStringArray(R.array.dock_apps)));
+        order.addAll(Arrays.asList(ctx.getResources().getStringArray(R.array.grid_apps)));
+        this.favourites = order;
         this.hidden = new HashSet<>(Arrays.asList(ctx.getResources().getStringArray(R.array.hidden_apps)));
         // Tiles keep their identity across reload(), so a focused tile stays on its app instead of
         // its view being rebound to whatever app now sits in that slot.

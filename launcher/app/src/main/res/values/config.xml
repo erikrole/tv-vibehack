@@ -13,10 +13,23 @@
         <item>com.netflix.ninja</item>
     </string-array>
 
+    <!-- Order of the app grid below the dock, top to bottom. Anything not listed follows alphabetically. -->
+    <string-array name="grid_apps">
+        <item>com.hulu.livingroomplus</item>
+        <item>com.amazon.amazonvideo.livingroom</item>
+        <item>com.peacocktv.peacockandroid</item>
+        <item>com.bamnetworks.mobile.android.gameday.atbat</item>
+        <item>com.jamdeo.tv.mediacenter</item>
+        <item>com.android.vending</item>
+        <item>com.android.tv.settings</item>
+    </string-array>
+
     <!-- Apps never shown as tiles (e.g. the Live TV app, which the Inputs menu already covers). -->
     <string-array name="hidden_apps">
         <item>com.mediatek.wwtv.tvcenter</item>
         <item>com.mitv.gallery</item>
+        <item>com.hisense.tv.protector</item>   <!-- Device Assistant -->
+        <item>com.mediatek.androidbox</item>   <!-- Screen Sharing -->
     </string-array>
 
     <!-- The TV's Live TV / tuner app, offered at the end of the Inputs menu. Leave empty to omit. -->
