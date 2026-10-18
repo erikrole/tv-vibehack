@@ -38,6 +38,18 @@
             </intent-filter>
         </activity>
 
+        <!-- Reports playing / paused / stopped to Home Assistant. Needs notification access:
+             `cmd notification allow_listener com.gathin.tvhome/com.gathin.tvhome.PlaybackReporter` over adb. -->
+        <service
+            android:name=".PlaybackReporter"
+            android:label="Playback reporter"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <!-- Screensaver: pick it in Settings, or `settings put secure screensaver_components
              com.gathin.tvhome/.ClockDream` over adb. -->
         <service

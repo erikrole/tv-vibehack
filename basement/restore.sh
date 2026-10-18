@@ -12,6 +12,7 @@ tv() { adb -s "$TARGET" shell "$@" </dev/null; }
 adb connect "$TARGET" >/dev/null
 for p in $(grep -vE '^\s*(#|$)' "$LIST" | awk '{print $1}') "$STOCK"; do tv pm enable "$p"; done
 tv cmd package set-home-activity --user 0 "$STOCK/com.google.android.tvlauncher.MainActivity"
+tv cmd notification disallow_listener com.gathin.tvhome/com.gathin.tvhome.PlaybackReporter
 tv pm uninstall com.gathin.tvhome
 tv settings put global stay_on_while_plugged_in 3
 tv settings put system screen_off_timeout 300000

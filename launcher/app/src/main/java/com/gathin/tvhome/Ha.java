@@ -25,6 +25,40 @@ final class Ha {
         return !BuildConfig.HA_URL.isEmpty() && !BuildConfig.HA_TOKEN.isEmpty();
     }
 
+    /** POST /api/states/{entityId}: creates or updates a state (not persisted across Home Assistant restarts). */
+    static void setState(String entityId, String state, String attributesJson, Callback cb) {
+        if (!configured()) {
+            if (cb != null) cb.done(false, "Home Assistant is not configured");
+            return;
+        }
+        POOL.execute(() -> {
+            boolean ok = false;
+            HttpURLConnection c = null;
+            try {
+                String base = BuildConfig.HA_URL.replaceAll("/+$", "");
+                c = (HttpURLConnection) new URL(base + "/api/states/" + entityId).openConnection();
+                c.setConnectTimeout(4000);
+                c.setReadTimeout(6000);
+                c.setRequestMethod("POST");
+                c.setRequestProperty("Authorization", "Bearer " + BuildConfig.HA_TOKEN);
+                c.setRequestProperty("Content-Type", "application/json");
+                c.setDoOutput(true);
+                byte[] body = ("{\"state\":\"" + state + "\",\"attributes\":" + attributesJson + "}")
+                        .getBytes(StandardCharsets.UTF_8);
+                try (OutputStream os = c.getOutputStream()) {
+                    os.write(body);
+                }
+                int code = c.getResponseCode();
+                ok = code >= 200 && code < 300;
+            } catch (Exception ignored) {
+            } finally {
+                if (c != null) c.disconnect();
+            }
+            final boolean fOk = ok;
+            if (cb != null) MAIN.post(() -> cb.done(fOk, fOk ? "Done" : "Home Assistant did not accept the update"));
+        });
+    }
+
     /** POST /api/services/{domain}/{service} with {"entity_id": entityId}. The callback runs on the main thread. */
     static void call(String domain, String service, String entityId, Callback cb) {
         if (!configured()) {
