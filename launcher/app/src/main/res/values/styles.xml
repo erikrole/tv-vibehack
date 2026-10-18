@@ -48,7 +48,7 @@
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:textColor">#FFFFFFFF</item>
-        <item name="android:textSize">26sp</item>
+        <item name="android:textSize">28sp</item>
         <item name="android:fontFamily">@font/outfit</item>
         <item name="android:fontVariationSettings">\'wght\' 300</item>
     </style>

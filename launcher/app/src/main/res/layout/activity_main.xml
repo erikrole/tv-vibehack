@@ -27,7 +27,7 @@
         android:layout_width="360dp"
         android:layout_height="202dp"
         android:layout_gravity="end"
-        android:layout_marginEnd="68dp"
+        android:layout_marginEnd="64dp"
         android:scaleType="centerCrop"
         android:alpha="0"
         android:importantForAccessibility="no" />
@@ -37,7 +37,7 @@
         android:id="@+id/heroName"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="68dp"
+        android:layout_marginStart="64dp"
         android:alpha="0"
         android:textColor="#FFFFFFFF"
         android:textSize="48sp"
@@ -49,11 +49,12 @@
 
     <LinearLayout
         android:id="@+id/mainContent"
+        android:clipToPadding="false"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:paddingStart="56dp"
-        android:paddingEnd="56dp"
+        android:paddingStart="64dp"
+        android:paddingEnd="64dp"
         android:paddingTop="32dp">
 
         <RelativeLayout
@@ -71,7 +72,6 @@
                     android:id="@+id/greeting"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
                     android:textColor="#8CFFFFFF"
                     android:textSize="12sp"
                     android:fontFamily="@font/outfit"
@@ -188,13 +188,17 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:layout_marginTop="10dp">
+            android:layout_marginTop="10dp"
+            android:layout_marginStart="-28dp"
+            android:layout_marginEnd="-28dp">
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/grid"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:paddingTop="10dp"
+                android:paddingStart="28dp"
+                android:paddingEnd="28dp"
                 android:paddingBottom="40dp"
                 android:clipToPadding="false"
                 android:clipChildren="false"
@@ -209,7 +213,7 @@
         android:id="@+id/infoRow"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="60dp"
+        android:layout_marginStart="64dp"
         android:layout_marginTop="136dp"
         android:orientation="vertical">
 
@@ -232,10 +236,10 @@
                 android:layout_height="wrap_content"
                 android:textColor="@drawable/pill_text"
                 android:alpha="0.7"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:fontFamily="@font/outfit"
                 android:fontVariationSettings="'wght' 500"
-                android:letterSpacing="0.18"
+                android:letterSpacing="0.2"
                 android:textAllCaps="true" />
 
             <TextView

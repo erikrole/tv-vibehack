@@ -135,7 +135,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         heroArt.setOutlineProvider(new android.view.ViewOutlineProvider() {
             @Override
             public void getOutline(View v, android.graphics.Outline o) {
-                o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), 24 * density);
+                o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), 28 * density);
             }
         });
         heroArt.setClipToOutline(true);
@@ -323,6 +323,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             chip.setOnKeyListener((v, keyCode, event) -> event.getAction() == KeyEvent.ACTION_DOWN
                     && keyCode == KeyEvent.KEYCODE_DPAD_UP);   // top of the screen: pills are reached from the right
             chip.setLayoutParams(chipParams());
+            chipFocus(chip);
             sceneRow.addView(chip);
         }
     }
@@ -377,9 +378,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         ((ViewGroup) infoRow).setDescendantFocusability(mode);
     }
 
+    /** Same focus feel as the pills: a small scale-up. */
+    private void chipFocus(View chip) {
+        chip.setOnFocusChangeListener((v, focused) ->
+                v.animate().scaleX(focused ? 1.06f : 1f).scaleY(focused ? 1.06f : 1f).setDuration(180).start());
+    }
+
     private LinearLayout.LayoutParams chipParams() {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, (int) (42 * density));
+                ViewGroup.LayoutParams.WRAP_CONTENT, (int) (44 * density));
         lp.setMarginEnd((int) (10 * density));
         return lp;
     }
@@ -387,6 +394,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView ccChip(String text, Runnable action) {
         TextView chip = new TextView(this, null, 0, R.style.Chip);
         chip.setLayoutParams(chipParams());
+        chipFocus(chip);
         chip.setText(text);
         chip.setOnClickListener(v -> action.run());
         return chip;

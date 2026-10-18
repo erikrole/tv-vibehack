@@ -61,9 +61,9 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
             }
         }
         if (!any) return;
-        float pad = 14 * density;
+        float pad = 16 * density;
         rect.inset(-pad, -pad);
-        float radius = 26 * density;
+        float radius = 36 * density;   // tile radius (20) + band padding (16): concentric corners
         c.drawRoundRect(rect, radius, radius, band);
         // Specular top highlight: a bright-to-clear gradient over the upper part of the band (Liquid Glass look).
         sheen.setShader(new LinearGradient(0, rect.top, 0, rect.top + rect.height() * 0.35f,
