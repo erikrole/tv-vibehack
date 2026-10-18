@@ -44,12 +44,14 @@
     <!-- Home Assistant scene row. Entity ids and labels, in order. Needs ha.url and ha.token in launcher/local.properties. -->
     <string-array name="ha_scene_ids">
         <item>scene.home_theater_movie</item>
+        <item>scene.home_theater_sports</item>
         <item>scene.home_theater_intermission</item>
         <item>scene.home_theater_lights_up</item>
         <item>scene.home_theater_game_day</item>
     </string-array>
     <string-array name="ha_scene_labels">
         <item>Movie</item>
+        <item>Sports</item>
         <item>Intermission</item>
         <item>Lights up</item>
         <item>Game day</item>
