@@ -86,6 +86,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     };
     private SpringAnimation springX, springY;
     private float glassTargetX, glassTargetY;
+    private View focusedCard;
     private boolean glassShown;
     // Static so they survive the activity being destroyed while another app is open (low-memory TVs,
     // or Developer options → "Don't keep activities"); they only reset when the process dies.
@@ -183,9 +184,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             @Override
             public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
                 if (!glassShown) return;
-                glassTargetY -= dy;
-                if (springY.isRunning()) springY.animateToFinalPosition(glassTargetY);
-                else glass.setTranslationY(glassTargetY);
+                // While the grid scrolls, pin the glass to its tile's real position every frame, so it can never
+                // trail behind (a spring chasing a moving target looked like the outline sliding below the icon).
+                if (focusedCard != null && focusedCard.isAttachedToWindow()) {
+                    Rect r = new Rect(0, 0, focusedCard.getWidth(), focusedCard.getHeight());
+                    root.offsetDescendantRectToMyCoords(focusedCard, r);
+                    glassTargetY = r.exactCenterY() - glass.getHeight() / 2f;
+                } else {
+                    glassTargetY -= dy;
+                }
+                springY.cancel();
+                glass.setTranslationY(glassTargetY);
             }
         });
 
@@ -485,6 +494,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     public void onTileFocused(int position, View card) {
         lastFocused = position;
+        focusedCard = card;
         lastFocusedKey = adapter.keyAt(position);
         // Tile rect in root coordinates, using layout positions (ignores the scale animation).
         Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
