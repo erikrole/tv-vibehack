@@ -18,6 +18,6 @@
     <string name="offline">Offline</string>
     <string name="not_available">Not available on this TV</string>
     <string name="cant_open">Can\'t open %1$s</string>
-    <string name="date_format">EEEE  d MMMM</string>
+    <string name="date_format">EEEE, MMMM d</string>
     <string name="dream_name">Clock</string>
 </resources>

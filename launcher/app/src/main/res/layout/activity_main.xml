@@ -21,17 +21,6 @@
         android:layout_height="match_parent"
         android:alpha="0" />
 
-    <!-- Top shelf hero art: the focused dock app's banner, large and rounded, above the dock on the right. -->
-    <ImageView
-        android:id="@+id/heroArt"
-        android:layout_width="360dp"
-        android:layout_height="202dp"
-        android:layout_gravity="end"
-        android:layout_marginEnd="64dp"
-        android:scaleType="centerCrop"
-        android:alpha="0"
-        android:importantForAccessibility="no" />
-
     <!-- Top shelf: the focused dock app's name, positioned above the dock in code. -->
     <TextView
         android:id="@+id/heroName"
@@ -72,12 +61,10 @@
                     android:id="@+id/greeting"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#8CFFFFFF"
-                    android:textSize="12sp"
+                    android:textColor="#A6FFFFFF"
+                    android:textSize="17sp"
                     android:fontFamily="@font/outfit"
-                    android:fontVariationSettings="'wght' 500"
-                    android:letterSpacing="0.22"
-                    android:textAllCaps="true" />
+                    android:fontVariationSettings="'wght' 500" />
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -128,15 +115,13 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="bottom"
-                        android:layout_marginBottom="9dp"
+                        android:layout_marginBottom="7dp"
                         android:format12Hour="@string/date_format"
                         android:format24Hour="@string/date_format"
                         android:textColor="#A6FFFFFF"
-                        android:textSize="14sp"
+                        android:textSize="18sp"
                         android:fontFamily="@font/outfit"
-                        android:fontVariationSettings="'wght' 400"
-                        android:letterSpacing="0.14"
-                        android:textAllCaps="true" />
+                        android:fontVariationSettings="'wght' 400" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -214,40 +199,74 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="64dp"
-        android:layout_marginTop="136dp"
-        android:orientation="vertical">
+        android:layout_marginTop="132dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
         <LinearLayout
             android:id="@+id/badgersCard"
             android:layout_width="wrap_content"
-            android:layout_height="58dp"
-            android:layout_marginBottom="10dp"
-            android:minWidth="260dp"
-            android:paddingStart="18dp"
-            android:paddingEnd="22dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="20dp"
+            android:minWidth="300dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="18dp"
+            android:paddingTop="14dp"
+            android:paddingBottom="14dp"
             android:gravity="center_vertical"
-            android:orientation="vertical"
-            android:background="@drawable/chip_bg"
+            android:orientation="horizontal"
+            android:background="@drawable/card_bg"
             android:visibility="gone">
 
-            <TextView
-                android:id="@+id/badgersTitle"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:textColor="@drawable/pill_text"
-                android:alpha="0.7"
-                android:textSize="12sp"
-                android:fontFamily="@font/outfit"
-                android:fontVariationSettings="'wght' 500"
-                android:letterSpacing="0.2"
-                android:textAllCaps="true" />
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/badgersTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#99FFFFFF"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/outfit"
+                    android:fontVariationSettings="'wght' 500" />
+
+                <TextView
+                    android:id="@+id/badgersGame"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="24sp"
+                    android:fontFamily="@font/outfit"
+                    android:fontVariationSettings="'wght' 600"
+                    android:letterSpacing="-0.01" />
+
+                <TextView
+                    android:id="@+id/badgersWhen"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="#B3FFFFFF"
+                    android:textSize="15sp"
+                    android:fontFamily="@font/outfit"
+                    android:fontVariationSettings="'wght' 400" />
+            </LinearLayout>
 
             <TextView
-                android:id="@+id/badgersGame"
+                android:id="@+id/badgersCountdown"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@drawable/pill_text"
-                android:textSize="16sp"
+                android:layout_marginStart="18dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp"
+                android:background="@drawable/count_bg"
+                android:textColor="#FFFFFFFF"
+                android:textSize="14sp"
                 android:fontFamily="@font/outfit"
                 android:fontVariationSettings="'wght' 500" />
         </LinearLayout>

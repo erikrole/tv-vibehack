@@ -308,7 +308,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 float s = focused ? FOCUS_SCALE : 1.0f;
                 view.animate().scaleX(s).scaleY(s)
                         .setDuration(focused ? 260 : 180)
-                        .setInterpolator(new OvershootInterpolator(focused ? 1.6f : 0f))
+                        .setInterpolator(new OvershootInterpolator(focused ? 0.5f : 0f))
                         .start();
                 name.animate().alpha(focused ? 1f : 0f)
                         .translationY(focused ? density * 4f : -density * 6f)
@@ -318,10 +318,10 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 if (focused) {
                     // Parallax tilt toward the direction we came from, springing back to flat.
                     view.setCameraDistance(density * 9000f);
-                    view.setRotationY(lastDir * 7f);
-                    view.setRotationX(lastDir == 0 ? 3f : 0f);
+                    view.setRotationY(lastDir * 3f);
+                    view.setRotationX(lastDir == 0 ? 1.5f : 0f);
                     view.animate().rotationY(0f).rotationX(0f).setDuration(420)
-                            .setInterpolator(new OvershootInterpolator(2.4f)).start();
+                            .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
                     // Shine: a diagonal sheen sweeping across the tile.
                     shine.setTranslationX(-shine.getWidth());
                     shine.setAlpha(1f);

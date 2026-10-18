@@ -64,7 +64,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private FrameLayout root;
     private GlassView glass;
     private View ambient;
-    private ImageView backdrop, heroArt;
+    private ImageView backdrop;
     private TextView heroName;
     private GradientDrawable ambientGlow;
     private int ambientColor;
@@ -131,15 +131,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         backdrop = findViewById(R.id.backdrop);
         // Darken the blurred art so the white clock, pills and titles stay readable over bright banners.
         backdrop.setColorFilter(0xFF4A4A4A, android.graphics.PorterDuff.Mode.MULTIPLY);
-        heroArt = findViewById(R.id.heroArt);
-        heroArt.setOutlineProvider(new android.view.ViewOutlineProvider() {
-            @Override
-            public void getOutline(View v, android.graphics.Outline o) {
-                o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), 28 * density);
-            }
-        });
-        heroArt.setClipToOutline(true);
-        heroArt.setElevation(16 * density);
         ambientGlow = new GradientDrawable();
         ambientGlow.setGradientType(GradientDrawable.RADIAL_GRADIENT);
         ambientGlow.setGradientCenter(0.32f, 0.42f);
@@ -202,7 +193,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         springX = new SpringAnimation(glass, DynamicAnimation.TRANSLATION_X);
         springY = new SpringAnimation(glass, DynamicAnimation.TRANSLATION_Y);
         for (SpringAnimation s : new SpringAnimation[]{springX, springY}) {
-            s.setSpring(new SpringForce().setStiffness(260f).setDampingRatio(0.58f));
+            s.setSpring(new SpringForce().setStiffness(320f).setDampingRatio(0.86f));
         }
 
         View btnInputs = findViewById(R.id.btnInputs);
@@ -260,7 +251,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         heroName.setAlpha(0f);
         ambient.setAlpha(0f);
         backdrop.setAlpha(0f);
-        heroArt.setAlpha(0f);
         // Read these before reload(): rebinding can move focus to the first tile and overwrite them.
         final String returnKey = lastFocusedKey;
         final int returnSlot = lastFocused;
@@ -346,11 +336,30 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             badgersCard.setVisibility(View.GONE);
             return;
         }
-        String when = new SimpleDateFormat("EEE MMM d, h:mm a", Locale.US).format(new Date(g.startMs));
         String net = g.network.isEmpty() ? "" : " · " + g.network;
-        badgersGame.setText(String.format(Locale.US, "%s %s · %s", g.home ? "vs" : "at", g.opponent, when));
-        badgersTitle.setText(String.format(Locale.US, "Next Badgers %s%s", g.sport.toLowerCase(Locale.US), net));
+        badgersTitle.setText(String.format(Locale.US, "Badgers %s%s", g.sport.toLowerCase(Locale.US), net));
+        badgersGame.setText(String.format(Locale.US, "%s %s", g.home ? "vs" : "at", g.opponent));
+        ((TextView) findViewById(R.id.badgersWhen)).setText(
+                new SimpleDateFormat("EEEE, MMM d · h:mm a", Locale.US).format(new Date(g.startMs)));
+        ((TextView) findViewById(R.id.badgersCountdown)).setText(countdown(g.startMs));
         badgersCard.setVisibility(View.VISIBLE);
+    }
+
+    /** "Today", "Tomorrow" or "In 6 days", counted in calendar days. */
+    private static String countdown(long startMs) {
+        Calendar a = Calendar.getInstance();
+        Calendar b = Calendar.getInstance();
+        b.setTimeInMillis(startMs);
+        for (Calendar c : new Calendar[]{a, b}) {
+            c.set(Calendar.HOUR_OF_DAY, 0);
+            c.set(Calendar.MINUTE, 0);
+            c.set(Calendar.SECOND, 0);
+            c.set(Calendar.MILLISECOND, 0);
+        }
+        long days = Math.round((b.getTimeInMillis() - a.getTimeInMillis()) / 86_400_000.0);
+        if (days <= 0) return "Today";
+        if (days == 1) return "Tomorrow";
+        return "In " + days + " days";
     }
 
     // ---- Control Center --------------------------------------------------------------------------
@@ -369,7 +378,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         panel.setScaleY(0.94f);
         controlCenter.animate().alpha(1f).setDuration(200).start();
         panel.animate().scaleX(1f).scaleY(1f).setDuration(320)
-                .setInterpolator(new android.view.animation.OvershootInterpolator(1.2f)).start();
+                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.8f)).start();
         View first = ccInputs.getChildCount() > 0 && ccInputs.getChildAt(0).isFocusable()
                 ? ccInputs.getChildAt(0) : ccSleep.getChildAt(0);
         if (first != null) first.requestFocus();
@@ -575,14 +584,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
             backdrop.animate().alpha(0.85f).setDuration(450).start();
         }
-        android.graphics.drawable.Drawable art = adapter.heroArtAt(position);
-        heroArt.setY(Math.max(0f, dockTopInRoot - 14 * density - 26 * density - heroArt.getLayoutParams().height));
-        heroArt.animate().alpha(0f).setDuration(110).withEndAction(() -> {
-            heroArt.setImageDrawable(art);
-            heroArt.setScaleX(0.97f);
-            heroArt.setScaleY(0.97f);
-            heroArt.animate().alpha(art != null ? 1f : 0f).scaleX(1f).scaleY(1f).setDuration(260).start();
-        }).start();
     }
 
     private void setAmbient(int color) {
@@ -598,7 +599,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         infoRow.animate().alpha(0f).setDuration(160).start();
         ambient.animate().alpha(0f).setDuration(300).start();
         backdrop.animate().alpha(0f).setDuration(300).start();
-        heroArt.animate().alpha(0f).setDuration(200).start();
     }
 
     private void hideGlass() {
@@ -679,14 +679,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** Shows the Wi-Fi network name on the button when we can read it, otherwise the connection type. */
     private void updateWifiLabel() {
         String text = getString(R.string.wifi);
+        int netIcon = R.drawable.ic_wifi;
         try {
             ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
             Network net = cm != null ? cm.getActiveNetwork() : null;
             NetworkCapabilities caps = net != null ? cm.getNetworkCapabilities(net) : null;
             if (caps == null) {
                 text = getString(R.string.offline);
+                netIcon = R.drawable.ic_wifi_off;
             } else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
                 text = getString(R.string.ethernet);
+                netIcon = R.drawable.ic_ethernet;
             } else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
                 WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
                 WifiInfo info = wm != null ? wm.getConnectionInfo() : null;
@@ -699,6 +702,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         } catch (Exception ignored) {
         }
         networkLabel = text;
+        btnWifi.setCompoundDrawablesWithIntrinsicBounds(netIcon, 0, 0, 0);
         if (btnWifi.isFocused()) btnWifi.setText(text);
     }
 
