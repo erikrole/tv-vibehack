@@ -37,7 +37,7 @@
         <item name="android:gravity">center</item>
         <item name="android:background">@drawable/chip_bg</item>
         <item name="android:textColor">@drawable/pill_text</item>
-        <item name="android:textSize">15sp</item>
+        <item name="android:textSize">14sp</item>
         <item name="android:fontFamily">@font/inter</item>
         <item name="android:fontVariationSettings">\'wght\' 650</item>
         <item name="android:singleLine">true</item>
