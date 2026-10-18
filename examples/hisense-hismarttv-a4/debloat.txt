@@ -9,3 +9,6 @@ net.vidaatv.android.tv
 # OTA / firmware update services (updates off by request)
 com.hisense.tv.ota
 com.hisense.remoteupgrade
+# Voice assistants (disabled by request)
+com.google.android.katniss
+com.hisense.alexa
