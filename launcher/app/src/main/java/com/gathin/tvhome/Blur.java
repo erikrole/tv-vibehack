@@ -10,12 +10,12 @@ import android.graphics.drawable.Drawable;
  * (96x54), box-blurred and scaled up with filtering, once per focus change and cached per app.
  */
 final class Blur {
-    private static final int W = 96, H = 54;
+    static final int W = 96, H = 54;
 
     private Blur() {}
 
     /** Draws {@code d} cover-fitted into a small bitmap and blurs it. Returns null when there is nothing to draw. */
-    static Bitmap of(Drawable live) {
+    static int[] pixelsOf(Drawable live) {
         if (live == null) return null;
         // Private copy: changing the bounds of the drawable an ImageView shows would blank the tile.
         Drawable d = live.getConstantState() != null ? live.getConstantState().newDrawable().mutate() : live;
@@ -35,8 +35,12 @@ final class Blur {
             px = pass(px, true, 5);
             px = pass(px, false, 5);
         }
-        bmp.setPixels(px, 0, W, 0, 0, W, H);
-        return bmp;
+        // Bake in the darkening that keeps the white clock and titles readable, so no colour filter is needed at draw time.
+        for (int i = 0; i < px.length; i++) {
+            int p = px[i];
+            px[i] = 0xFF000000 | (((p >> 16) & 0xFF) * 74 / 255) << 16 | (((p >> 8) & 0xFF) * 74 / 255) << 8 | ((p & 0xFF) * 74 / 255);
+        }
+        return px;
     }
 
     private static int[] pass(int[] src, boolean horizontal, int r) {

@@ -57,7 +57,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         final Drawable banner;
         final Drawable icon;
         int ambient;
-        Bitmap blurred;
+        int[] backdrop;
 
         Entry(String label, ComponentName component, Drawable banner, Drawable icon) {
             this.label = label;
@@ -196,12 +196,12 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         return -1;
     }
 
-    /** Blurred backdrop art for the app at a position, built once and cached. */
-    Bitmap blurredAt(int position) {
+    /** Blurred, darkened backdrop pixels (Blur.W x Blur.H) for the app at a position, built once and cached. */
+    int[] backdropAt(int position) {
         if (position < 0 || position >= items.size()) return null;
         Entry e = items.get(position);
-        if (e.blurred == null) e.blurred = Blur.of(e.banner != null ? e.banner : e.icon);
-        return e.blurred;
+        if (e.backdrop == null) e.backdrop = Blur.pixelsOf(e.banner != null ? e.banner : e.icon);
+        return e.backdrop;
     }
 
     /** Crisp hero art: the app's banner, or its icon when it has none. */
@@ -322,15 +322,8 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                     view.setRotationX(lastDir == 0 ? 1.5f : 0f);
                     view.animate().rotationY(0f).rotationX(0f).setDuration(420)
                             .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
-                    // Shine: a diagonal sheen sweeping across the tile.
-                    shine.setTranslationX(-shine.getWidth());
-                    shine.setAlpha(1f);
-                    shine.animate().translationX(view.getWidth()).setDuration(520)
-                            .withEndAction(() -> shine.setAlpha(0f)).start();
                 } else {
                     view.animate().rotationY(0f).rotationX(0f).setDuration(120).start();
-                    shine.animate().cancel();
-                    shine.setAlpha(0f);
                 }
                 int pos = getBindingAdapterPosition();
                 if (focused && listener != null && pos != RecyclerView.NO_POSITION) {

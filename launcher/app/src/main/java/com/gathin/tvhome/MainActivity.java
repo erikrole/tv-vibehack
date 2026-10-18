@@ -66,8 +66,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private View ambient;
     private ImageView backdrop;
     private TextView heroName;
-    private GradientDrawable ambientGlow;
     private int ambientColor;
+    /** The whole backdrop (blurred art plus colour glow) is one small opaque bitmap, scaled up: one cheap full-screen draw. */
+    private android.graphics.Bitmap bdBmp;
+    private int[] bdCur, bdFrom, bdTo;
+    private android.animation.ValueAnimator bdAnim;
+    private float[] glowAlpha;
     private boolean heroShown;
     private TextView greeting;
     private TextView btnWifi;
@@ -130,14 +134,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         ambient = findViewById(R.id.ambient);
         heroName = findViewById(R.id.heroName);
         backdrop = findViewById(R.id.backdrop);
-        // Darken the blurred art so the white clock, pills and titles stay readable over bright banners.
-        backdrop.setColorFilter(0xFF4A4A4A, android.graphics.PorterDuff.Mode.MULTIPLY);
-        ambientGlow = new GradientDrawable();
-        ambientGlow.setGradientType(GradientDrawable.RADIAL_GRADIENT);
-        ambientGlow.setGradientCenter(0.32f, 0.42f);
-        ambient.setBackground(ambientGlow);
-        ambient.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) ->
-                ambientGlow.setGradientRadius((r - l) * 0.62f));
+        ambient.setVisibility(View.GONE);   // replaced by the composited backdrop bitmap below
+        initBackdrop();
         greeting = findViewById(R.id.greeting);
         btnWifi = findViewById(R.id.btnWifi);
         btnControl = findViewById(R.id.btnControl);
@@ -258,8 +256,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         heroShown = false;
         infoRow.setAlpha(1f);
         heroName.setAlpha(0f);
-        ambient.setAlpha(0f);
-        backdrop.setAlpha(0f);
+        snapBackdrop(null);
         // Read these before reload(): rebinding can move focus to the first tile and overwrite them.
         final String returnKey = lastFocusedKey;
         final int returnSlot = lastFocused;
@@ -547,15 +544,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         int color = adapter.ambientColorAt(position);
         float y = dockTopInRoot - 14 * density - 26 * density - heroName.getHeight();
         boolean changed = !label.contentEquals(heroName.getText());
-        if (changed || !heroShown) updateBackdrop(position, dockTopInRoot);
+        if (changed || !heroShown) updateBackdrop(position, color);
 
         if (!heroShown) {
             heroName.setText(label);
             heroName.setY(y);
             heroName.setTranslationX(0f);
             heroName.animate().alpha(1f).setDuration(260).start();
-            setAmbient(color);
-            ambient.animate().alpha(1f).setDuration(600).start();
+            ambientColor = color;
             infoRow.animate().alpha(1f).setDuration(260).start();
             heroShown = true;
         } else if (changed) {
@@ -565,41 +561,86 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 heroName.setTranslationX(12 * density);
                 heroName.animate().alpha(1f).translationX(0f).setDuration(200).start();
             }).start();
-            if (color != ambientColor) {
-                ambient.animate().alpha(0.35f).setDuration(200).withEndAction(() -> {
-                    setAmbient(color);
-                    ambient.animate().alpha(1f).setDuration(500).start();
-                }).start();
-            }
+            ambientColor = color;
         } else {
             heroName.setY(y);
         }
     }
 
-    /** Crossfades the blurred backdrop and the crisp hero art to the focused app. */
-    private void updateBackdrop(int position, float dockTopInRoot) {
-        android.graphics.Bitmap blurred = adapter.blurredAt(position);
-        if (blurred != null) {
-            android.graphics.drawable.Drawable next = new android.graphics.drawable.BitmapDrawable(getResources(), blurred);
-            next.setFilterBitmap(true);
-            android.graphics.drawable.Drawable prev = backdrop.getDrawable();
-            if (prev != null && backdrop.getAlpha() > 0f) {
-                android.graphics.drawable.TransitionDrawable t =
-                        new android.graphics.drawable.TransitionDrawable(new android.graphics.drawable.Drawable[]{prev, next});
-                t.setCrossFadeEnabled(true);
-                backdrop.setImageDrawable(t);
-                t.startTransition(450);
-            } else {
-                backdrop.setImageDrawable(next);
+    private void initBackdrop() {
+        bdBmp = android.graphics.Bitmap.createBitmap(Blur.W, Blur.H, android.graphics.Bitmap.Config.ARGB_8888);
+        android.graphics.drawable.BitmapDrawable d = new android.graphics.drawable.BitmapDrawable(getResources(), bdBmp);
+        d.setFilterBitmap(true);
+        backdrop.setScaleType(ImageView.ScaleType.FIT_XY);
+        backdrop.setImageDrawable(d);
+        backdrop.setAlpha(1f);
+        int n = Blur.W * Blur.H;
+        bdCur = new int[n];
+        bdFrom = new int[n];
+        bdTo = new int[n];
+        // Glow falloff: the old radial gradient (centre 32%/42%, radius 62% of the width, alpha 0x5C -> 0x26 -> 0).
+        glowAlpha = new float[n];
+        float rad = 0.62f * Blur.W;
+        for (int y = 0; y < Blur.H; y++) {
+            for (int x = 0; x < Blur.W; x++) {
+                float dx = x - 0.32f * Blur.W, dy = y - 0.42f * Blur.H;
+                float t = (float) Math.sqrt(dx * dx + dy * dy) / rad;
+                float a = t < 0.5f ? 0x5C + (0x26 - 0x5C) * (t / 0.5f) : t < 1f ? 0x26 * (1f - (t - 0.5f) / 0.5f) : 0f;
+                glowAlpha[y * Blur.W + x] = a / 255f;
             }
-            backdrop.animate().alpha(0.85f).setDuration(450).start();
         }
+        snapBackdrop(null);
     }
 
-    private void setAmbient(int color) {
-        ambientColor = color;
-        int c = color & 0x00FFFFFF;
-        ambientGlow.setColors(new int[]{0x5C000000 | c, 0x26000000 | c, 0x00000000 | c});
+    /** Backdrop target: the app's blurred art with its colour glow over it (opaque, so nothing needs blending). */
+    private int[] composeBackdrop(int[] art, int color) {
+        int[] out = new int[Blur.W * Blur.H];
+        int cr = (color >> 16) & 0xFF, cg = (color >> 8) & 0xFF, cb = color & 0xFF;
+        for (int i = 0; i < out.length; i++) {
+            int p = art != null ? art[i] : 0xFF000000;
+            float a = glowAlpha[i];
+            int r = (int) (((p >> 16) & 0xFF) * (1 - a) + cr * a);
+            int g = (int) (((p >> 8) & 0xFF) * (1 - a) + cg * a);
+            int b = (int) ((p & 0xFF) * (1 - a) + cb * a);
+            out[i] = 0xFF000000 | r << 16 | g << 8 | b;
+        }
+        return out;
+    }
+
+    private void snapBackdrop(int[] target) {
+        if (bdAnim != null) bdAnim.cancel();
+        if (target == null) java.util.Arrays.fill(bdCur, 0xFF000000);
+        else System.arraycopy(target, 0, bdCur, 0, bdCur.length);
+        bdBmp.setPixels(bdCur, 0, Blur.W, 0, 0, Blur.W, Blur.H);
+        backdrop.invalidate();
+    }
+
+    /** Crossfades the backdrop to a new target by blending the two tiny bitmaps. */
+    private void fadeBackdropTo(int[] target, long ms) {
+        if (bdAnim != null) bdAnim.cancel();
+        System.arraycopy(bdCur, 0, bdFrom, 0, bdCur.length);
+        System.arraycopy(target, 0, bdTo, 0, bdTo.length);
+        bdAnim = android.animation.ValueAnimator.ofFloat(0f, 1f);
+        bdAnim.setDuration(ms);
+        bdAnim.setInterpolator(new android.view.animation.DecelerateInterpolator(1.4f));
+        bdAnim.addUpdateListener(a -> {
+            float t = (float) a.getAnimatedValue();
+            int k = (int) (t * 256);
+            for (int i = 0; i < bdCur.length; i++) {
+                int f = bdFrom[i], g = bdTo[i];
+                int r = (((f >> 16) & 0xFF) * (256 - k) + ((g >> 16) & 0xFF) * k) >> 8;
+                int gr = (((f >> 8) & 0xFF) * (256 - k) + ((g >> 8) & 0xFF) * k) >> 8;
+                int b = ((f & 0xFF) * (256 - k) + (g & 0xFF) * k) >> 8;
+                bdCur[i] = 0xFF000000 | r << 16 | gr << 8 | b;
+            }
+            bdBmp.setPixels(bdCur, 0, Blur.W, 0, 0, Blur.W, Blur.H);
+            backdrop.invalidate();
+        });
+        bdAnim.start();
+    }
+
+    private void updateBackdrop(int position, int color) {
+        fadeBackdropTo(composeBackdrop(adapter.backdropAt(position), color), 450);
     }
 
     private void hideHero() {
@@ -607,8 +648,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         heroShown = false;
         heroName.animate().alpha(0f).setDuration(160).start();
         infoRow.animate().alpha(0f).setDuration(160).start();
-        ambient.animate().alpha(0f).setDuration(300).start();
-        backdrop.animate().alpha(0f).setDuration(300).start();
+        fadeBackdropTo(composeBackdrop(null, 0), 300);
     }
 
     private void hideGlass() {

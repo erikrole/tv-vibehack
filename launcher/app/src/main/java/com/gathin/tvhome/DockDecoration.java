@@ -19,6 +19,7 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
     private final Paint band = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint edge = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint sheen = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private float lastSheenTop = Float.NaN, lastSheenH = Float.NaN;
     private final RectF rect = new RectF();
 
     DockDecoration(int dockSize, float density) {
@@ -66,8 +67,14 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
         float radius = 36 * density;   // tile radius (20) + band padding (16): concentric corners
         c.drawRoundRect(rect, radius, radius, band);
         // Specular top highlight: a bright-to-clear gradient over the upper part of the band (Liquid Glass look).
-        sheen.setShader(new LinearGradient(0, rect.top, 0, rect.top + rect.height() * 0.35f,
-                0x26FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+        // The shader is only rebuilt when the band moves: allocating one per frame was wasted work on a slow TV.
+        float sheenTop = rect.top, sheenH = rect.height();
+        if (sheenTop != lastSheenTop || sheenH != lastSheenH) {
+            sheen.setShader(new LinearGradient(0, sheenTop, 0, sheenTop + sheenH * 0.35f,
+                    0x26FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+            lastSheenTop = sheenTop;
+            lastSheenH = sheenH;
+        }
         c.drawRoundRect(rect, radius, radius, sheen);
     }
 }
