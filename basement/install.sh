@@ -42,5 +42,5 @@ for k in window_animation_scale transition_animation_scale animator_duration_sca
 echo "== make it home"
 tv cmd package set-home-activity --user 0 com.gathin.tvhome/.MainActivity
 tv pm disable-user --user 0 "$STOCK"
-tv input keyevent KEYCODE_HOME
+if [ "${GO_HOME:-0}" = 1 ]; then tv input keyevent KEYCODE_HOME; fi   # off by default so an install never interrupts what is playing
 echo "Done. Undo with: TV_HOST=$TV_HOST basement/restore.sh"
