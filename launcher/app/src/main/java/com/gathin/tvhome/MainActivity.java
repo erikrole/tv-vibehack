@@ -25,6 +25,9 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import android.view.animation.AnimationUtils;
 import android.view.animation.LayoutAnimationController;
 import android.widget.FrameLayout;
@@ -61,12 +64,26 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private FrameLayout root;
     private GlassView glass;
     private View ambient;
+    private ImageView backdrop, heroArt;
     private TextView heroName;
     private GradientDrawable ambientGlow;
     private int ambientColor;
     private boolean heroShown;
     private TextView greeting;
     private TextView btnWifi;
+    private String networkLabel = "";
+    private View infoRow, controlCenter;
+    private LinearLayout sceneRow, ccInputs, ccSleep;
+    private TextView btnControl, ccStatus, badgersTitle, badgersGame;
+    private View badgersCard;
+    private boolean ccOpen;
+    /** Sleep timer: when it fires the TV is turned off through Home Assistant. Lives as long as the process. */
+    private static long sleepAtMs = 0L;
+    private final Runnable sleepFire = () -> {
+        sleepAtMs = 0L;
+        Ha.call("media_player", "turn_off", getString(R.string.ha_tv_entity), (ok, msg) ->
+                Toast.makeText(this, ok ? "Good night" : msg, Toast.LENGTH_LONG).show());
+    };
     private SpringAnimation springX, springY;
     private float glassTargetX, glassTargetY;
     private boolean glassShown;
@@ -111,6 +128,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         glass = findViewById(R.id.glass);
         ambient = findViewById(R.id.ambient);
         heroName = findViewById(R.id.heroName);
+        backdrop = findViewById(R.id.backdrop);
+        // Darken the blurred art so the white clock, pills and titles stay readable over bright banners.
+        backdrop.setColorFilter(0xFF4A4A4A, android.graphics.PorterDuff.Mode.MULTIPLY);
+        heroArt = findViewById(R.id.heroArt);
+        heroArt.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override
+            public void getOutline(View v, android.graphics.Outline o) {
+                o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), 24 * density);
+            }
+        });
+        heroArt.setClipToOutline(true);
+        heroArt.setElevation(16 * density);
         ambientGlow = new GradientDrawable();
         ambientGlow.setGradientType(GradientDrawable.RADIAL_GRADIENT);
         ambientGlow.setGradientCenter(0.32f, 0.42f);
@@ -119,6 +148,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 ambientGlow.setGradientRadius((r - l) * 0.62f));
         greeting = findViewById(R.id.greeting);
         btnWifi = findViewById(R.id.btnWifi);
+        btnControl = findViewById(R.id.btnControl);
+        infoRow = findViewById(R.id.infoRow);
+        sceneRow = findViewById(R.id.sceneRow);
+        badgersCard = findViewById(R.id.badgersCard);
+        badgersTitle = findViewById(R.id.badgersTitle);
+        badgersGame = findViewById(R.id.badgersGame);
+        controlCenter = findViewById(R.id.controlCenter);
+        ccInputs = findViewById(R.id.ccInputs);
+        ccSleep = findViewById(R.id.ccSleep);
+        ccStatus = findViewById(R.id.ccStatus);
+        buildScenes();
+        Badgers.load(this, this::showGame);
 
         grid = findViewById(R.id.grid);
         grid.setLayoutManager(new GridLayoutManager(this, COLUMNS));
@@ -172,8 +213,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v.getId() == R.id.btnInputs) return true;
             return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == R.id.btnSettings;
         };
+        btnControl.setOnClickListener(v -> openControlCenter());
+        for (TextView pill : new TextView[]{(TextView) btnInputs, btnWifi, btnControl, (TextView) btnSettings}) {
+            pill.setOnFocusChangeListener((v, focused) -> {
+                TextView t = (TextView) v;
+                t.setText(focused ? pillLabel(t) : "");
+                t.setCompoundDrawablePadding(focused ? (int) (9 * density) : 0);
+                t.setPadding((int) (11 * density), 0, (int) ((focused ? 18 : 11) * density), 0);
+                t.animate().scaleX(focused ? 1.06f : 1f).scaleY(focused ? 1.06f : 1f).setDuration(180).start();
+            });
+        }
         btnInputs.setOnKeyListener(pillKeys);
         btnWifi.setOnKeyListener(pillKeys);
+        btnControl.setOnKeyListener(pillKeys);
         btnSettings.setOnKeyListener(pillKeys);
 
         // Hide the glass when focus leaves the tiles.
@@ -189,11 +241,20 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onResume() {
         super.onResume();
+        root.animate().cancel();
+        root.setScaleX(1.06f);
+        root.setScaleY(1.06f);
+        root.setAlpha(0f);
+        root.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(320)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
         glassShown = false;
         glass.setAlpha(0f);
         heroShown = false;
+        infoRow.setAlpha(1f);
         heroName.setAlpha(0f);
         ambient.setAlpha(0f);
+        backdrop.setAlpha(0f);
+        heroArt.setAlpha(0f);
         // Read these before reload(): rebinding can move focus to the first tile and overwrite them.
         final String returnKey = lastFocusedKey;
         final int returnSlot = lastFocused;
@@ -224,9 +285,169 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (cm != null) cm.unregisterNetworkCallback(networkCallback);
     }
 
+    /** Zoom-out launch: the home screen shrinks and fades as the app opens, and snaps back on return. */
+    @Override
+    public void onLaunch(Runnable go) {
+        root.animate().scaleX(0.92f).scaleY(0.92f).alpha(0f).setDuration(200)
+                .setInterpolator(new android.view.animation.AccelerateInterpolator(1.2f))
+                .withEndAction(go).start();
+    }
+
     @Override
     public void onBackPressed() {
+        if (ccOpen) closeControlCenter();
         // Home screen: Back goes nowhere.
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_MENU) {   // Menu/Options key toggles the Control Center
+            if (ccOpen) closeControlCenter();
+            else openControlCenter();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    // ---- scenes, game card -----------------------------------------------------------------------
+
+    private void buildScenes() {
+        String[] ids = getResources().getStringArray(R.array.ha_scene_ids);
+        String[] labels = getResources().getStringArray(R.array.ha_scene_labels);
+        for (int i = 0; i < ids.length && i < labels.length; i++) {
+            final String id = ids[i];
+            TextView chip = new TextView(this, null, 0, R.style.Chip);
+            chip.setText(labels[i]);
+            chip.setOnClickListener(v -> Ha.call("scene", "turn_on", id, (ok, msg) ->
+                    Toast.makeText(this, ok ? ((TextView) v).getText() + " on" : msg, Toast.LENGTH_SHORT).show()));
+            chip.setOnKeyListener((v, keyCode, event) -> event.getAction() == KeyEvent.ACTION_DOWN
+                    && keyCode == KeyEvent.KEYCODE_DPAD_UP);   // top of the screen: pills are reached from the right
+            chip.setLayoutParams(chipParams());
+            sceneRow.addView(chip);
+        }
+    }
+
+    private void showGame(Badgers.Game g) {
+        if (g == null) {
+            badgersCard.setVisibility(View.GONE);
+            return;
+        }
+        String when = new SimpleDateFormat("EEE MMM d, h:mm a", Locale.US).format(new Date(g.startMs));
+        String net = g.network.isEmpty() ? "" : " · " + g.network;
+        badgersGame.setText(String.format(Locale.US, "%s %s · %s", g.home ? "vs" : "at", g.opponent, when));
+        badgersTitle.setText(String.format(Locale.US, "Next Badgers %s%s", g.sport.toLowerCase(Locale.US), net));
+        badgersCard.setVisibility(View.VISIBLE);
+    }
+
+    // ---- Control Center --------------------------------------------------------------------------
+
+    private void openControlCenter() {
+        if (ccOpen) return;
+        ccOpen = true;
+        buildCcInputs();
+        buildCcSleep();
+        updateCcStatus();
+        setUnderlayFocusable(false);
+        controlCenter.setAlpha(0f);
+        controlCenter.setVisibility(View.VISIBLE);
+        View panel = findViewById(R.id.ccPanel);
+        panel.setScaleX(0.94f);
+        panel.setScaleY(0.94f);
+        controlCenter.animate().alpha(1f).setDuration(200).start();
+        panel.animate().scaleX(1f).scaleY(1f).setDuration(320)
+                .setInterpolator(new android.view.animation.OvershootInterpolator(1.2f)).start();
+        View first = ccInputs.getChildCount() > 0 && ccInputs.getChildAt(0).isFocusable()
+                ? ccInputs.getChildAt(0) : ccSleep.getChildAt(0);
+        if (first != null) first.requestFocus();
+    }
+
+    private void closeControlCenter() {
+        if (!ccOpen) return;
+        ccOpen = false;
+        controlCenter.animate().alpha(0f).setDuration(160).withEndAction(() -> {
+            controlCenter.setVisibility(View.GONE);
+            setUnderlayFocusable(true);
+            btnControl.requestFocus();
+        }).start();
+    }
+
+    private void setUnderlayFocusable(boolean on) {
+        int mode = on ? ViewGroup.FOCUS_BEFORE_DESCENDANTS : ViewGroup.FOCUS_BLOCK_DESCENDANTS;
+        ((ViewGroup) findViewById(R.id.mainContent)).setDescendantFocusability(mode);
+        ((ViewGroup) infoRow).setDescendantFocusability(mode);
+    }
+
+    private LinearLayout.LayoutParams chipParams() {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, (int) (42 * density));
+        lp.setMarginEnd((int) (10 * density));
+        return lp;
+    }
+
+    private TextView ccChip(String text, Runnable action) {
+        TextView chip = new TextView(this, null, 0, R.style.Chip);
+        chip.setLayoutParams(chipParams());
+        chip.setText(text);
+        chip.setOnClickListener(v -> action.run());
+        return chip;
+    }
+
+    /** One chip per HDMI/AV input; selecting it switches the TV straight to that input. */
+    private void buildCcInputs() {
+        ccInputs.removeAllViews();
+        TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
+        if (tim != null) {
+            List<TvInputInfo> inputs = new ArrayList<>(tim.getTvInputList());
+            Collections.sort(inputs, (a, b) -> String.valueOf(a.loadLabel(this)).compareToIgnoreCase(String.valueOf(b.loadLabel(this))));
+            for (TvInputInfo info : inputs) {
+                if (!info.isPassthroughInput()) continue;
+                CharSequence l = info.loadLabel(this);
+                String label = l == null ? info.getId() : l.toString();
+                if (info.getType() == TvInputInfo.TYPE_HDMI && !label.toUpperCase(Locale.US).contains("HDMI")) label = "HDMI " + label;
+                final String id = info.getId();
+                ccInputs.addView(ccChip(label, () -> {
+                    closeControlCenter();
+                    open(new Intent(Intent.ACTION_VIEW).setDataAndType(
+                            TvContract.buildChannelUriForPassthroughInput(id), "vnd.android.cursor.item/channel"));
+                }));
+            }
+        }
+        if (ccInputs.getChildCount() == 0) {
+            TextView none = new TextView(this);
+            none.setText("No HDMI inputs found on this device");
+            none.setTextColor(0x80FFFFFF);
+            none.setTextSize(14);
+            ccInputs.addView(none);
+        }
+    }
+
+    private void buildCcSleep() {
+        ccSleep.removeAllViews();
+        int[] minutes = {15, 30, 60, 90};
+        for (int m : minutes) {
+            ccSleep.addView(ccChip(m + " min", () -> {
+                handler.removeCallbacks(sleepFire);
+                sleepAtMs = System.currentTimeMillis() + m * MINUTE_MS;
+                handler.postDelayed(sleepFire, m * MINUTE_MS);
+                updateCcStatus();
+            }));
+        }
+        ccSleep.addView(ccChip("Off", () -> {
+            handler.removeCallbacks(sleepFire);
+            sleepAtMs = 0L;
+            updateCcStatus();
+        }));
+    }
+
+    private void updateCcStatus() {
+        String s;
+        if (sleepAtMs > System.currentTimeMillis()) {
+            long min = Math.max(1, (sleepAtMs - System.currentTimeMillis() + MINUTE_MS - 1) / MINUTE_MS);
+            s = "The TV turns off in " + min + " min";
+        } else {
+            s = Ha.configured() ? "Sleep timer is off" : "Sleep timer needs Home Assistant: add ha.url and ha.token to launcher/local.properties";
+        }
+        ccStatus.setText(s);
     }
 
     // ---- glass highlight -------------------------------------------------------------------------
@@ -286,6 +507,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         int color = adapter.ambientColorAt(position);
         float y = dockTopInRoot - 14 * density - 26 * density - heroName.getHeight();
         boolean changed = !label.contentEquals(heroName.getText());
+        if (changed || !heroShown) updateBackdrop(position, dockTopInRoot);
 
         if (!heroShown) {
             heroName.setText(label);
@@ -294,6 +516,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             heroName.animate().alpha(1f).setDuration(260).start();
             setAmbient(color);
             ambient.animate().alpha(1f).setDuration(600).start();
+            infoRow.animate().alpha(1f).setDuration(260).start();
             heroShown = true;
         } else if (changed) {
             heroName.animate().alpha(0f).translationX(-12 * density).setDuration(120).withEndAction(() -> {
@@ -313,6 +536,34 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
+    /** Crossfades the blurred backdrop and the crisp hero art to the focused app. */
+    private void updateBackdrop(int position, float dockTopInRoot) {
+        android.graphics.Bitmap blurred = adapter.blurredAt(position);
+        if (blurred != null) {
+            android.graphics.drawable.Drawable next = new android.graphics.drawable.BitmapDrawable(getResources(), blurred);
+            next.setFilterBitmap(true);
+            android.graphics.drawable.Drawable prev = backdrop.getDrawable();
+            if (prev != null && backdrop.getAlpha() > 0f) {
+                android.graphics.drawable.TransitionDrawable t =
+                        new android.graphics.drawable.TransitionDrawable(new android.graphics.drawable.Drawable[]{prev, next});
+                t.setCrossFadeEnabled(true);
+                backdrop.setImageDrawable(t);
+                t.startTransition(450);
+            } else {
+                backdrop.setImageDrawable(next);
+            }
+            backdrop.animate().alpha(0.85f).setDuration(450).start();
+        }
+        android.graphics.drawable.Drawable art = adapter.heroArtAt(position);
+        heroArt.setY(Math.max(0f, dockTopInRoot - 14 * density - 26 * density - heroArt.getLayoutParams().height));
+        heroArt.animate().alpha(0f).setDuration(110).withEndAction(() -> {
+            heroArt.setImageDrawable(art);
+            heroArt.setScaleX(0.97f);
+            heroArt.setScaleY(0.97f);
+            heroArt.animate().alpha(art != null ? 1f : 0f).scaleX(1f).scaleY(1f).setDuration(260).start();
+        }).start();
+    }
+
     private void setAmbient(int color) {
         ambientColor = color;
         int c = color & 0x00FFFFFF;
@@ -323,7 +574,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (!heroShown) return;
         heroShown = false;
         heroName.animate().alpha(0f).setDuration(160).start();
+        infoRow.animate().alpha(0f).setDuration(160).start();
         ambient.animate().alpha(0f).setDuration(300).start();
+        backdrop.animate().alpha(0f).setDuration(300).start();
+        heroArt.animate().alpha(0f).setDuration(200).start();
     }
 
     private void hideGlass() {
@@ -377,6 +631,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     // ---- top bar ---------------------------------------------------------------------------------
 
+    /** Label shown while a pill is focused. */
+    private String pillLabel(TextView pill) {
+        if (pill.getId() == R.id.btnInputs) return getString(R.string.inputs);
+        if (pill.getId() == R.id.btnWifi) return networkLabel;
+        if (pill.getId() == R.id.btnControl) return "Control Center";
+        return getString(R.string.settings);
+    }
+
     private void updateGreeting() {
         String room = getString(R.string.room_name);
         if (!room.isEmpty()) {   // a fixed room name replaces the time-of-day greeting
@@ -415,7 +677,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         } catch (Exception ignored) {
         }
-        btnWifi.setText(text);
+        networkLabel = text;
+        if (btnWifi.isFocused()) btnWifi.setText(text);
     }
 
     private void open(Intent i) {

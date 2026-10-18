@@ -5,12 +5,32 @@
     android:layout_height="match_parent"
     android:background="#FF000000">
 
+    <!-- Blurred art of the focused dock app, crossfaded when focus moves. -->
+    <ImageView
+        android:id="@+id/backdrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0"
+        android:importantForAccessibility="no" />
+
     <!-- Ambient glow in the colour of the focused dock app. -->
     <View
         android:id="@+id/ambient"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:alpha="0" />
+
+    <!-- Top shelf hero art: the focused dock app's banner, large and rounded, above the dock on the right. -->
+    <ImageView
+        android:id="@+id/heroArt"
+        android:layout_width="360dp"
+        android:layout_height="202dp"
+        android:layout_gravity="end"
+        android:layout_marginEnd="68dp"
+        android:scaleType="centerCrop"
+        android:alpha="0"
+        android:importantForAccessibility="no" />
 
     <!-- Top shelf: the focused dock app's name, positioned above the dock in code. -->
     <TextView
@@ -28,12 +48,13 @@
         android:singleLine="true" />
 
     <LinearLayout
+        android:id="@+id/mainContent"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:paddingStart="56dp"
         android:paddingEnd="56dp"
-        android:paddingTop="26dp">
+        android:paddingTop="32dp">
 
         <RelativeLayout
             android:layout_width="match_parent"
@@ -131,21 +152,32 @@
                 <TextView
                     android:id="@+id/btnInputs"
                     style="@style/TopButton"
-                    android:text="@string/inputs"
+                    android:text=""
+    android:contentDescription="@string/inputs"
                     android:drawableStart="@drawable/ic_input"
                     android:nextFocusDown="@+id/grid" />
 
                 <TextView
                     android:id="@+id/btnWifi"
                     style="@style/TopButton"
-                    android:text="@string/wifi"
+                    android:text=""
+    android:contentDescription="@string/wifi"
                     android:drawableStart="@drawable/ic_wifi"
+                    android:nextFocusDown="@+id/grid" />
+
+                <TextView
+                    android:id="@+id/btnControl"
+                    style="@style/TopButton"
+                    android:text=""
+                    android:contentDescription="Control Center"
+                    android:drawableStart="@drawable/ic_control"
                     android:nextFocusDown="@+id/grid" />
 
                 <TextView
                     android:id="@+id/btnSettings"
                     style="@style/TopButton"
-                    android:text="@string/settings"
+                    android:text=""
+    android:contentDescription="@string/settings"
                     android:drawableStart="@drawable/ic_settings"
                     android:nextFocusDown="@+id/grid" />
             </LinearLayout>
@@ -171,6 +203,111 @@
                 android:descendantFocusability="afterDescendants" />
         </FrameLayout>
     </LinearLayout>
+
+    <!-- Next Badgers game and Home Assistant scenes, between the clock and the top shelf. -->
+    <LinearLayout
+        android:id="@+id/infoRow"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="60dp"
+        android:layout_marginTop="136dp"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:id="@+id/badgersCard"
+            android:layout_width="wrap_content"
+            android:layout_height="58dp"
+            android:layout_marginBottom="10dp"
+            android:minWidth="260dp"
+            android:paddingStart="18dp"
+            android:paddingEnd="22dp"
+            android:gravity="center_vertical"
+            android:orientation="vertical"
+            android:background="@drawable/chip_bg"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/badgersTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@drawable/pill_text"
+                android:alpha="0.7"
+                android:textSize="11sp"
+                android:fontFamily="@font/outfit"
+                android:fontVariationSettings="'wght' 500"
+                android:letterSpacing="0.18"
+                android:textAllCaps="true" />
+
+            <TextView
+                android:id="@+id/badgersGame"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@drawable/pill_text"
+                android:textSize="16sp"
+                android:fontFamily="@font/outfit"
+                android:fontVariationSettings="'wght' 500" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/sceneRow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+    </LinearLayout>
+
+    <!-- Control Center: opens from the top-bar pill or the Menu key. -->
+    <FrameLayout
+        android:id="@+id/controlCenter"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#B3000000"
+        android:elevation="60dp"
+        android:visibility="gone"
+        android:clickable="true">
+
+        <LinearLayout
+            android:id="@+id/ccPanel"
+            android:layout_width="620dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:padding="26dp"
+            android:background="@drawable/cc_panel">
+
+            <TextView
+                style="@style/CcHeading"
+                android:text="Control Center" />
+
+            <TextView
+                style="@style/CcLabel"
+                android:text="Inputs" />
+
+            <LinearLayout
+                android:id="@+id/ccInputs"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+
+            <TextView
+                style="@style/CcLabel"
+                android:text="Sleep timer" />
+
+            <LinearLayout
+                android:id="@+id/ccSleep"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+
+            <TextView
+                android:id="@+id/ccStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:textColor="#A6FFFFFF"
+                android:textSize="13sp"
+                android:fontFamily="@font/outfit" />
+        </LinearLayout>
+    </FrameLayout>
 
     <!-- The single floating glass highlight that springs between tiles. -->
     <com.gathin.tvhome.GlassView

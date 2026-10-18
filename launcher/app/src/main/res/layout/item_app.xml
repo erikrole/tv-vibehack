@@ -32,6 +32,15 @@
             android:visibility="gone"
             android:contentDescription="@null" />
 
+        <!-- Diagonal sheen that sweeps across the focused tile. -->
+        <View
+            android:id="@+id/shine"
+            android:layout_width="90dp"
+            android:layout_height="match_parent"
+            android:background="@drawable/shine"
+            android:alpha="0"
+            android:importantForAccessibility="no" />
+
         <TextView
             android:id="@+id/label"
             android:layout_width="match_parent"

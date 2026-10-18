@@ -24,7 +24,7 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
     DockDecoration(int dockSize, float density) {
         this.dockSize = dockSize;
         this.density = density;
-        band.setColor(0x38FFFFFF);   // translucent glass band (Liquid Glass look), the ambient glow shows through
+        band.setColor(0x2EFFFFFF);   // translucent glass band (Liquid Glass look), the ambient glow shows through
         edge.setStyle(Paint.Style.STROKE);
         edge.setStrokeWidth(density);
         edge.setColor(0x4DFFFFFF);
@@ -65,10 +65,9 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
         rect.inset(-pad, -pad);
         float radius = 26 * density;
         c.drawRoundRect(rect, radius, radius, band);
-        c.drawRoundRect(rect, radius, radius, edge);
         // Specular top highlight: a bright-to-clear gradient over the upper part of the band (Liquid Glass look).
-        sheen.setShader(new LinearGradient(0, rect.top, 0, rect.top + rect.height() * 0.5f,
-                0x40FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+        sheen.setShader(new LinearGradient(0, rect.top, 0, rect.top + rect.height() * 0.35f,
+                0x26FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
         c.drawRoundRect(rect, radius, radius, sheen);
     }
 }

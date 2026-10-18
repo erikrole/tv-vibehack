@@ -27,4 +27,28 @@
 
     <!-- Tiles per row in the grid; the dock always has this many slots. -->
     <integer name="columns">4</integer>
+
+    <!-- Home Assistant scene row. Entity ids and labels, in order. Needs ha.url and ha.token in launcher/local.properties. -->
+    <string-array name="ha_scene_ids">
+        <item>scene.good_morning</item>
+        <item>scene.workout</item>
+        <item>scene.bedtime</item>
+    </string-array>
+    <string-array name="ha_scene_labels">
+        <item>Morning</item>
+        <item>Workout</item>
+        <item>Bedtime</item>
+    </string-array>
+
+    <!-- The TV in Home Assistant, used by the sleep timer (media_player.turn_off). -->
+    <string name="ha_tv_entity" translatable="false">media_player.home_theater_hisense_tv</string>
+
+    <!-- ESPN team schedules checked for the Badgers card; the earliest upcoming game wins. Team id 275 = Wisconsin. -->
+    <string-array name="badgers_schedules">
+        <item>football/college-football</item>
+        <item>basketball/mens-college-basketball</item>
+        <item>basketball/womens-college-basketball</item>
+        <item>hockey/mens-college-hockey</item>
+    </string-array>
+    <string name="badgers_team_id" translatable="false">275</string>
 </resources>
