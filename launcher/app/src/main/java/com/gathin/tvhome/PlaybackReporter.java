@@ -98,6 +98,9 @@ public class PlaybackReporter extends NotificationListenerService {
         String state = "stopped";
         String pkg = "";
         String title = "";
+        String subtitle = "";
+        long durationMs = 0;
+        boolean ad = false;
         for (MediaController c : watched) {
             PlaybackState ps = c.getPlaybackState();
             if (ps == null) continue;
@@ -116,13 +119,19 @@ public class PlaybackReporter extends NotificationListenerService {
                 MediaMetadata md = c.getMetadata();
                 title = md != null && md.getString(MediaMetadata.METADATA_KEY_TITLE) != null
                         ? md.getString(MediaMetadata.METADATA_KEY_TITLE) : "";
+                // What a player publishes about itself, kept so we can learn how each app marks ad breaks.
+                subtitle = md != null && md.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE) != null
+                        ? md.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE) : "";
+                durationMs = md != null ? md.getLong(MediaMetadata.METADATA_KEY_DURATION) : 0;
+                ad = md != null && md.getLong("android.media.metadata.ADVERTISEMENT") != 0;
             }
         }
-        String key = state + "|" + pkg + "|" + title;
+        String key = state + "|" + pkg + "|" + title + "|" + subtitle + "|" + durationMs + "|" + ad;
         if (key.equals(lastSent)) return;
         lastSent = key;
         String attrs = "{\"friendly_name\":\"Home Theater Playback\",\"icon\":\"mdi:play-pause\",\"package\":"
-                + json(pkg) + ",\"title\":" + json(title) + "}";
+                + json(pkg) + ",\"title\":" + json(title) + ",\"subtitle\":" + json(subtitle)
+                + ",\"duration_s\":" + (durationMs / 1000) + ",\"ad\":" + ad + "}";
         Ha.setState(ENTITY, state, attrs, null);
     }
 
