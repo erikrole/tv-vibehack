@@ -32,6 +32,16 @@
             android:visibility="gone"
             android:contentDescription="@null" />
 
+        <!-- Diagonal sheen that sweeps across the focused tile. -->
+        <View
+            android:id="@+id/shine"
+            android:visibility="gone"
+            android:layout_width="90dp"
+            android:layout_height="match_parent"
+            android:background="@drawable/shine"
+            android:alpha="0"
+            android:importantForAccessibility="no" />
+
         <TextView
             android:id="@+id/label"
             android:layout_width="match_parent"
@@ -44,8 +54,9 @@
             android:singleLine="true"
             android:ellipsize="end"
             android:textColor="#FFFFFFFF"
-            android:textSize="13sp"
-            android:fontFamily="@font/outfit"
+            android:textSize="14sp"
+            android:fontFamily="@font/inter"
+            android:fontVariationSettings="'wght' 700"
             android:visibility="gone" />
     </FrameLayout>
 
@@ -62,7 +73,7 @@
         android:translationY="-6dp"
         android:textColor="#F2FFFFFF"
         android:textSize="14sp"
-        android:fontFamily="@font/outfit"
-        android:fontVariationSettings="'wght' 500"
-        android:letterSpacing="0.02" />
+        android:fontFamily="@font/inter"
+        android:fontVariationSettings="'wght' 700"
+        android:letterSpacing="0" />
 </FrameLayout>

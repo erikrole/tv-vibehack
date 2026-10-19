@@ -7,21 +7,65 @@
 
     <!-- Apps pinned to the dock row at the bottom, in this order. Missing apps are skipped. -->
     <string-array name="dock_apps">
-        <item>com.netflix.ninja</item>
-        <item>com.amazon.amazonvideo.livingroom</item>
+        <item>com.google.android.youtube.tvunplugged</item>
         <item>com.google.android.youtube.tv</item>
-        <item>in.startv.hotstar</item>
+        <item>com.apple.atve.androidtv.appletv</item>
+        <item>com.netflix.ninja</item>
+    </string-array>
+
+    <!-- Order of the app grid below the dock, top to bottom. Anything not listed follows alphabetically. -->
+    <string-array name="grid_apps">
+        <item>com.hulu.livingroomplus</item>
+        <item>com.amazon.amazonvideo.livingroom</item>
+        <item>com.peacocktv.peacockandroid</item>
+        <item>com.bamnetworks.mobile.android.gameday.atbat</item>
+        <item>com.jamdeo.tv.mediacenter</item>
+        <item>com.android.vending</item>
+        <item>com.android.tv.settings</item>
     </string-array>
 
     <!-- Apps never shown as tiles (e.g. the Live TV app, which the Inputs menu already covers). -->
     <string-array name="hidden_apps">
         <item>com.mediatek.wwtv.tvcenter</item>
         <item>com.mitv.gallery</item>
+        <item>com.hisense.tv.protector</item>   <!-- Device Assistant -->
+        <item>com.mediatek.androidbox</item>   <!-- Screen Sharing -->
     </string-array>
 
     <!-- The TV's Live TV / tuner app, offered at the end of the Inputs menu. Leave empty to omit. -->
     <string name="live_tv_package" translatable="false">com.mediatek.wwtv.tvcenter</string>
 
+    <!-- Shown instead of the time-of-day greeting top left. Leave empty to show "Good morning" etc. -->
+    <string name="room_name" translatable="false">Basement Home Theater</string>
+
     <!-- Tiles per row in the grid; the dock always has this many slots. -->
     <integer name="columns">4</integer>
+
+    <!-- Home Assistant scene row. Entity ids and labels, in order. Needs ha.url and ha.token in launcher/local.properties. -->
+    <string-array name="ha_scene_ids">
+        <item>scene.home_theater_movie</item>
+        <item>scene.home_theater_sports</item>
+        <item>scene.home_theater_intermission</item>
+        <item>scene.home_theater_lights_up</item>
+        <item>scene.home_theater_game_day</item>
+    </string-array>
+    <string-array name="ha_scene_labels">
+        <item>Movie</item>
+        <item>Sports</item>
+        <item>Intermission</item>
+        <item>Lights up</item>
+        <item>Game day</item>
+    </string-array>
+
+    <!-- The TV in Home Assistant, used by the sleep timer (media_player.turn_off). -->
+    <string name="ha_tv_entity" translatable="false">media_player.home_theater_hisense_tv</string>
+
+    <!-- Teams shown in the sports row: "Label;sport/league[,sport/league...];ESPN team id". The earliest upcoming
+         (or live) game across the listed leagues is shown. ESPN's public schedule API, no key needed. -->
+    <string-array name="sports_teams">
+        <item>Badgers;football/college-football,basketball/mens-college-basketball,basketball/womens-college-basketball,hockey/mens-college-hockey;275</item>
+        <item>Packers;football/nfl;9</item>
+        <item>Brewers;baseball/mlb;8</item>
+        <item>Bucks;basketball/nba;15</item>
+    </string-array>
 </resources>

@@ -2,6 +2,12 @@ plugins {
     id 'com.android.application'
 }
 
+// Home Assistant settings live in launcher/local.properties (gitignored): ha.url and ha.token.
+def localProps = new Properties()
+def localFile = rootProject.file('local.properties')
+if (localFile.exists()) localFile.withInputStream { localProps.load(it) }
+def q = { String v -> '"' + v.replace('\\', '\\\\').replace('"', '\\"') + '"' }
+
 android {
     namespace 'com.gathin.tvhome'
     compileSdk 34
@@ -9,9 +15,15 @@ android {
     defaultConfig {
         applicationId 'com.gathin.tvhome'
         minSdk 26
-        targetSdk 29
+        targetSdk 34
         versionCode 2
         versionName '2.0'
+        buildConfigField 'String', 'HA_URL', q(localProps.getProperty('ha.url', ''))
+        buildConfigField 'String', 'HA_TOKEN', q(localProps.getProperty('ha.token', ''))
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     buildTypes {

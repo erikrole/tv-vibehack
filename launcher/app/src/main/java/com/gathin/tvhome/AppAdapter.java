@@ -45,6 +45,9 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
         /** Called for D-pad Up/Down on a tile. Return true when handled. */
         boolean onTileVerticalKey(int position, int keyCode);
+
+        /** Runs the launch with the home screen zooming out; the listener calls {@code go} when it is time. */
+        void onLaunch(Runnable go);
     }
 
     static final class Entry {
@@ -54,6 +57,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         final Drawable banner;
         final Drawable icon;
         int ambient;
+        int[] backdrop;
 
         Entry(String label, ComponentName component, Drawable banner, Drawable icon) {
             this.label = label;
@@ -79,7 +83,10 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         this.ctx = ctx;
         this.listener = listener;
         this.dockSize = dockSize;
-        this.favourites = Arrays.asList(ctx.getResources().getStringArray(R.array.dock_apps));
+        // Dock apps first, then the grid order from config; everything else follows alphabetically.
+        List<String> order = new ArrayList<>(Arrays.asList(ctx.getResources().getStringArray(R.array.dock_apps)));
+        order.addAll(Arrays.asList(ctx.getResources().getStringArray(R.array.grid_apps)));
+        this.favourites = order;
         this.hidden = new HashSet<>(Arrays.asList(ctx.getResources().getStringArray(R.array.hidden_apps)));
         // Tiles keep their identity across reload(), so a focused tile stays on its app instead of
         // its view being rebound to whatever app now sits in that slot.
@@ -144,7 +151,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             h.label.setText(e.label);
             h.label.setVisibility(View.VISIBLE);
         }
-        h.card.setOnClickListener(v -> launch(e));
+        h.card.setOnClickListener(v -> listener.onLaunch(() -> launch(e)));
         h.card.setOnLongClickListener(v -> {
             Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + e.pkg));
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -190,6 +197,21 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             if (items.get(i).component.flattenToShortString().equals(key)) return i;
         }
         return -1;
+    }
+
+    /** Blurred, darkened backdrop pixels (Blur.W x Blur.H) for the app at a position, built once and cached. */
+    int[] backdropAt(int position) {
+        if (position < 0 || position >= items.size()) return null;
+        Entry e = items.get(position);
+        if (e.backdrop == null) e.backdrop = Blur.pixelsOf(e.banner != null ? e.banner : e.icon);
+        return e.backdrop;
+    }
+
+    /** Crisp hero art: the app's banner, or its icon when it has none. */
+    Drawable heroArtAt(int position) {
+        if (position < 0 || position >= items.size()) return null;
+        Entry e = items.get(position);
+        return e.banner != null ? e.banner : e.icon;
     }
 
     String labelAt(int position) {
@@ -252,6 +274,9 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         final ImageView icon;
         final TextView label;
         final TextView name;
+        final View shine;
+        /** -1/+1 when focus arrived moving left/right, for the tilt. */
+        static int lastDir = 0;
 
         Holder(View v, TileListener listener) {
             super(v);
@@ -260,9 +285,10 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             icon = v.findViewById(R.id.icon);
             label = v.findViewById(R.id.label);
             name = v.findViewById(R.id.name);
+            shine = v.findViewById(R.id.shine);
 
             final float density = v.getResources().getDisplayMetrics().density;
-            final float radius = density * 16f;
+            final float radius = density * 20f;
             card.setOutlineProvider(new ViewOutlineProvider() {
                 @Override
                 public void getOutline(View view, Outline outline) {
@@ -273,6 +299,9 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
             card.setOnKeyListener((view, keyCode, event) -> {
                 if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+                if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) lastDir = -1;
+                else if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) lastDir = 1;
+                else lastDir = 0;
                 if (keyCode != KeyEvent.KEYCODE_DPAD_UP && keyCode != KeyEvent.KEYCODE_DPAD_DOWN) return false;
                 int pos = getBindingAdapterPosition();
                 return listener != null && pos != RecyclerView.NO_POSITION && listener.onTileVerticalKey(pos, keyCode);
@@ -282,11 +311,23 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 float s = focused ? FOCUS_SCALE : 1.0f;
                 view.animate().scaleX(s).scaleY(s)
                         .setDuration(focused ? 260 : 180)
-                        .setInterpolator(new OvershootInterpolator(focused ? 1.6f : 0f))
+                        .setInterpolator(new OvershootInterpolator(focused ? 0.5f : 0f))
                         .start();
                 name.animate().alpha(focused ? 1f : 0f)
                         .translationY(focused ? density * 4f : -density * 6f)
                         .setDuration(220).start();
+                // Lift: a soft shadow under the focused tile.
+                view.animate().translationZ(focused ? density * 18f : 0f).setDuration(220).start();
+                if (focused) {
+                    // Parallax tilt toward the direction we came from, springing back to flat.
+                    view.setCameraDistance(density * 9000f);
+                    view.setRotationY(lastDir * 3f);
+                    view.setRotationX(lastDir == 0 ? 1.5f : 0f);
+                    view.animate().rotationY(0f).rotationX(0f).setDuration(420)
+                            .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+                } else {
+                    view.animate().rotationY(0f).rotationX(0f).setDuration(120).start();
+                }
                 int pos = getBindingAdapterPosition();
                 if (focused && listener != null && pos != RecyclerView.NO_POSITION) {
                     listener.onTileFocused(pos, view);
