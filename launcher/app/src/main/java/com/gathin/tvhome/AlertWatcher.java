@@ -163,6 +163,7 @@ final class AlertWatcher {
                 if (a.sticky) {
                     if (sticky == null) sticky = a;   // the first (most severe) active sticky alert stays up
                 } else if (!before) {
+                    if (notifyMode().equals("dnd") && !a.key.equals("ring")) continue;   // do-not-disturb: ring only
                     show(a);
                 }
             }
@@ -194,10 +195,13 @@ final class AlertWatcher {
         } catch (Exception ignored) {
         }
         queueGameStarts();
+        queueScores();
         long now = System.currentTimeMillis();
+        String mode = notifyMode();
         for (java.util.Iterator<Pending> it = queue.iterator(); it.hasNext(); ) {
             Pending p = it.next();
-            if (!p.high && (sleeping || now - p.queuedAt > INFO_MAX_AGE_MS)) it.remove();   // stale or quiet hours
+            if (!p.high && (sleeping || !mode.equals("normal") || now - p.queuedAt > INFO_MAX_AGE_MS)) it.remove();   // stale or quiet
+            else if (mode.equals("dnd")) it.remove();
         }
         if (now < busyUntil) return;
         for (java.util.Iterator<Pending> it = queue.iterator(); it.hasNext(); ) {
@@ -207,6 +211,27 @@ final class AlertWatcher {
             busyUntil = now + p.alert.showMs + 800;
             show(p.alert);
             return;
+        }
+    }
+
+    /** "normal", "quiet" (no info cards, no game reminders) or "dnd" (also no person alerts), set from the Control Center. */
+    private String notifyMode() {
+        android.content.SharedPreferences sp = ctx.getSharedPreferences("notify", Context.MODE_PRIVATE);
+        long until = sp.getLong("until", 0);
+        if (until > 0 && System.currentTimeMillis() > until) {
+            sp.edit().putString("mode", "normal").putLong("until", 0).apply();
+            return "normal";
+        }
+        return sp.getString("mode", "normal");
+    }
+
+    /** Scoring plays and finals for live games (info level: they wait for a pause). */
+    private void queueScores() {
+        try {
+            for (String[] e : Sports.pollLive(ctx)) {
+                queue.add(new Pending(new Alert("s" + System.nanoTime(), e[0], e[1], null, false, 0xFF30D158, 9000), false));
+            }
+        } catch (Exception ignored) {
         }
     }
 

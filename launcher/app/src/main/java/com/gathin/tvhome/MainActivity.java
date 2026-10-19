@@ -77,7 +77,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView btnWifi;
     private String networkLabel = "";
     private View infoRow, controlCenter;
-    private LinearLayout sceneRow, ccInputs, ccSleep;
+    private LinearLayout sceneRow, ccInputs, ccSleep, ccNotify;
     private TextView btnControl, ccStatus;
     private LinearLayout sportsRow;
     private boolean ccOpen;
@@ -145,6 +145,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         controlCenter = findViewById(R.id.controlCenter);
         ccInputs = findViewById(R.id.ccInputs);
         ccSleep = findViewById(R.id.ccSleep);
+        ccNotify = findViewById(R.id.ccNotify);
         ccStatus = findViewById(R.id.ccStatus);
         buildScenes();
         if (sceneRow.getChildCount() > 0) {
@@ -389,6 +390,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         ccOpen = true;
         buildCcInputs();
         buildCcSleep();
+        buildCcNotify();
         updateCcStatus();
         setUnderlayFocusable(false);
         controlCenter.setAlpha(0f);
@@ -489,6 +491,24 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }));
     }
 
+    /** Notification mode, read by the alert watcher: normal, quiet for an hour, or do-not-disturb until switched back. */
+    private void buildCcNotify() {
+        ccNotify.removeAllViews();
+        android.content.SharedPreferences sp = getSharedPreferences("notify", MODE_PRIVATE);
+        ccNotify.addView(ccChip("Normal", () -> {
+            sp.edit().putString("mode", "normal").putLong("until", 0).apply();
+            updateCcStatus();
+        }));
+        ccNotify.addView(ccChip("Quiet 1 h", () -> {
+            sp.edit().putString("mode", "quiet").putLong("until", System.currentTimeMillis() + 60 * MINUTE_MS).apply();
+            updateCcStatus();
+        }));
+        ccNotify.addView(ccChip("Do not disturb", () -> {
+            sp.edit().putString("mode", "dnd").putLong("until", 0).apply();
+            updateCcStatus();
+        }));
+    }
+
     private void updateCcStatus() {
         String s;
         if (sleepAtMs > System.currentTimeMillis()) {
@@ -496,6 +516,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             s = "The TV turns off in " + min + " min";
         } else {
             s = Ha.configured() ? "Sleep timer is off" : "Sleep timer needs Home Assistant: add ha.url and ha.token to launcher/local.properties";
+        }
+        android.content.SharedPreferences np = getSharedPreferences("notify", MODE_PRIVATE);
+        String nm = np.getString("mode", "normal");
+        if (nm.equals("quiet") && np.getLong("until", 0) > System.currentTimeMillis()) {
+            s += "\nNotifications are quiet for " + Math.max(1, (np.getLong("until", 0) - System.currentTimeMillis() + MINUTE_MS - 1) / MINUTE_MS) + " more min";
+        } else if (nm.equals("dnd")) {
+            s += "\nDo not disturb: only the doorbell ring, leaks and the alarm get through";
         }
         ccStatus.setText(s);
     }

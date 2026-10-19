@@ -58,22 +58,65 @@ final class Sports {
         long age = System.currentTimeMillis() - sp.getLong("fetched", 0);
         if (!cached.isEmpty() && age < (anyLive ? LIVE_AGE_MS : IDLE_AGE_MS)) return;
         POOL.execute(() -> {
-            List<Game> fresh = new ArrayList<>();
-            for (String spec : app.getResources().getStringArray(R.array.sports_teams)) {
-                try {
-                    Game g = bestFor(spec);
-                    if (g != null) fresh.add(g);
-                } catch (Exception ignored) {
-                }
-            }
-            if (fresh.isEmpty()) return;
-            Collections.sort(fresh, (a, b) -> {
-                if (a.live != b.live) return a.live ? -1 : 1;
-                return Long.compare(a.startMs, b.startMs);
-            });
-            sp.edit().putString("games", toJson(fresh)).putLong("fetched", System.currentTimeMillis()).apply();
-            MAIN.post(() -> l.onGames(fresh));
+            List<Game> fresh = fetchAll(app);
+            if (!fresh.isEmpty()) MAIN.post(() -> l.onGames(fresh));
         });
+    }
+
+    /** Fetches every team, caches the result and returns it (blocking: call off the main thread). */
+    static List<Game> fetchAll(Context app) {
+        SharedPreferences sp = app.getSharedPreferences("sports", Context.MODE_PRIVATE);
+        List<Game> fresh = new ArrayList<>();
+        for (String spec : app.getResources().getStringArray(R.array.sports_teams)) {
+            try {
+                Game g = bestFor(spec);
+                if (g != null) fresh.add(g);
+            } catch (Exception ignored) {
+            }
+        }
+        if (fresh.isEmpty()) return fresh;
+        Collections.sort(fresh, (a, b) -> {
+            if (a.live != b.live) return a.live ? -1 : 1;
+            return Long.compare(a.startMs, b.startMs);
+        });
+        sp.edit().putString("games", toJson(fresh)).putLong("fetched", System.currentTimeMillis()).apply();
+        return fresh;
+    }
+
+    /**
+     * Scoring plays and finals for teams whose game is live. Polls at most once a minute, and only while a cached
+     * game is live (or about to start). Returns {title, message} pairs for new events (blocking: off the main thread).
+     */
+    static List<String[]> pollLive(Context app) {
+        List<String[]> events = new ArrayList<>();
+        SharedPreferences sp = app.getSharedPreferences("sports", Context.MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        List<Game> cached = fromJson(sp.getString("games", "[]"));
+        boolean watch = false;
+        for (Game g : cached) watch |= g.live || (g.startMs - now < 5 * 60_000L && g.startMs - now > -3 * 3600_000L);
+        if (!watch || now - sp.getLong("live_poll", 0) < 60_000L) return events;
+        sp.edit().putLong("live_poll", now).apply();
+        List<Game> fresh = fetchAll(app);
+        SharedPreferences.Editor ed = sp.edit();
+        for (Game g : fresh) {
+            String key = "last_" + g.team;
+            String before = sp.getString(key, "");     // "score|opponent" while live
+            if (g.live && !g.score.isEmpty()) {
+                String now1 = g.score + "|" + g.opponent;
+                if (!before.isEmpty() && !before.equals(now1) && before.endsWith("|" + g.opponent)) {
+                    events.add(new String[]{g.team + " " + g.score.replace("-", "–"), (g.home ? "vs " : "at ") + g.opponent
+                            + (g.detail.isEmpty() ? "" : " · " + g.detail)});
+                }
+                ed.putString(key, now1);
+            } else if (!before.isEmpty()) {
+                String[] parts = before.split("\\|");
+                events.add(new String[]{"Final: " + g.team + " " + parts[0].replace("-", "–"),
+                        parts.length > 1 ? "vs " + parts[1] : ""});
+                ed.remove(key);
+            }
+        }
+        ed.apply();
+        return events;
     }
 
     /** spec = "Label;sport/league[,sport/league...];espnTeamId" */
