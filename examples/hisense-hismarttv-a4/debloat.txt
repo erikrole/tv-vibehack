@@ -12,3 +12,7 @@ com.hisense.remoteupgrade
 # Voice assistants (disabled by request)
 com.google.android.katniss
 com.hisense.alexa
+# Apps Erik doesn't use (disabled by request): Device Assistant, Screen Sharing, USB media player
+com.hisense.tv.protector
+com.mediatek.androidbox
+com.jamdeo.tv.mediacenter
