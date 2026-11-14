@@ -1,5 +1,11 @@
 # tv-vibehack
 
+## Current Basement fork
+
+The personalized launcher now uses an open canvas with free-standing app logos and wordmarks, small labels, a focus underline, compact unboxed sports information, and room-scene actions. It loads app metadata and bounded fallback icons asynchronously, uses bundled vector marks for common apps, and does not decode app banners or render animated blur. This redesign is currently an emulator preview; see [`basement/README.md`](basement/README.md) for setup and validation and [`ROADMAP.md`](ROADMAP.md) for the remaining acceptance gates.
+
+The original project's debloating guide and earlier visual design are retained below for reference.
+
 **Your TV, minus the ads.**
 
 Strip the bloatware from any Android TV or Google TV over Wi-Fi, and replace the ad-filled home

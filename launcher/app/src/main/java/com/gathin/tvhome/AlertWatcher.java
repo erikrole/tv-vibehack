@@ -8,6 +8,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Build;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
@@ -78,11 +79,15 @@ final class AlertWatcher {
     private final Map<String, Boolean> last = new HashMap<>();
     private final float density;
     private View overlay;
+    private volatile String visibleKey;
     private volatile boolean running;
+    private final Runnable dismissOverlay = this::hide;
     /** Notifications from Home Assistant (script.tv_notify) and local ones (game starts), waiting to be shown. */
     private final java.util.ArrayList<Pending> queue = new java.util.ArrayList<>();
     private long lastNotifId = -1;          // -1 until the first poll: what is already there is not replayed
-    private long busyUntil;                 // the overlay is showing until then
+    private volatile long busyUntil;        // shared by the worker and the UI that attaches the overlay
+    private final java.util.concurrent.atomic.AtomicInteger pendingShows = new java.util.concurrent.atomic.AtomicInteger();
+    private static final int MAX_PENDING = 32;
     private static final long INFO_MAX_AGE_MS = 30 * 60 * 1000L;
 
     private static final class Pending {
@@ -100,8 +105,16 @@ final class AlertWatcher {
         @Override
         public void run() {
             if (!running) return;
-            io.execute(AlertWatcher.this::pollOnce);
-            main.postDelayed(this, POLL_MS);
+            io.execute(() -> {
+                try {
+                    if (running) pollOnce();
+                } finally {
+                    // Schedule after completion. A slow camera/server must never build a queue of stale polls.
+                    main.post(() -> {
+                        if (running) main.postDelayed(poll, POLL_MS);
+                    });
+                }
+            });
         }
     };
 
@@ -114,6 +127,7 @@ final class AlertWatcher {
     private final android.content.BroadcastReceiver testReceiver = new android.content.BroadcastReceiver() {
         @Override
         public void onReceive(Context c, android.content.Intent i) {
+            if (!running) return;
             String key = i.getStringExtra("key");
             for (Alert a : ALERTS) {
                 if (a.key.equals(key)) {
@@ -125,12 +139,18 @@ final class AlertWatcher {
     };
     private boolean receiverRegistered;
 
+    @android.annotation.SuppressLint("UnspecifiedRegisterReceiverFlag") // Only the pre-33 branch uses the legacy overload.
     void start() {
         if (running || !Ha.configured()) return;
         running = true;
         if (!receiverRegistered) {
-            ctx.registerReceiver(testReceiver, new android.content.IntentFilter("com.gathin.tvhome.TEST_ALERT"),
-                    "android.permission.DUMP", main);   // only the adb shell holds DUMP
+            android.content.IntentFilter filter = new android.content.IntentFilter("com.gathin.tvhome.TEST_ALERT");
+            // Exported for adb, still restricted to the shell's DUMP permission on every Android version.
+            if (Build.VERSION.SDK_INT >= 33) {
+                ctx.registerReceiver(testReceiver, filter, "android.permission.DUMP", main, Context.RECEIVER_EXPORTED);
+            } else {
+                ctx.registerReceiver(testReceiver, filter, "android.permission.DUMP", main);
+            }
             receiverRegistered = true;
         }
         main.postDelayed(poll, 3000);
@@ -145,16 +165,18 @@ final class AlertWatcher {
             }
             receiverRegistered = false;
         }
-        main.removeCallbacks(poll);
-        main.post(this::hide);
+        main.removeCallbacksAndMessages(null);
+        io.shutdownNow();
+        hide();
     }
 
     private void pollOnce() {
         String json = Ha.renderTemplate(TEMPLATE);
-        if (json == null) return;
+        if (!running || json == null) return;
         try {
             JSONObject o = new JSONObject(json.trim());
             Alert sticky = null;
+            java.util.List<Alert> triggered = new java.util.ArrayList<>();
             for (Alert a : ALERTS) {
                 boolean now = o.optBoolean(a.key, false);
                 boolean before = Boolean.TRUE.equals(last.get(a.key));
@@ -164,18 +186,24 @@ final class AlertWatcher {
                     if (sticky == null) sticky = a;   // the first (most severe) active sticky alert stays up
                 } else if (!before) {
                     if (notifyMode().equals("dnd") && !a.key.equals("ring")) continue;   // do-not-disturb: ring only
-                    show(a);
+                    triggered.add(a);
                 }
             }
             if (sticky != null) show(sticky);
-            else if (overlay != null && overlay.getTag() instanceof Boolean && (Boolean) overlay.getTag()) main.post(this::hide);
-            handleNotifications(o.optString("n", ""), "playing".equals(o.optString("play")), "Sleep".equals(o.optString("mode")));
+            else {
+                main.post(() -> {
+                    if (overlay != null && Boolean.TRUE.equals(overlay.getTag())) hide();
+                });
+                for (Alert a : triggered) show(a);
+            }
+            handleNotifications(o.optString("n", ""), "playing".equals(o.optString("play")),
+                    "Sleep".equals(o.optString("mode")), sticky != null);
         } catch (Exception ignored) {
         }
     }
 
     /** Picks up a new script.tv_notify message, adds game-start reminders, and shows whatever is allowed right now. */
-    private void handleNotifications(String raw, boolean playing, boolean sleeping) {
+    private void handleNotifications(String raw, boolean playing, boolean sleeping, boolean stickyActive) {
         try {
             if (raw != null && raw.startsWith("{")) {
                 JSONObject n = new JSONObject(raw);
@@ -186,7 +214,7 @@ final class AlertWatcher {
                     lastNotifId = id;
                     boolean high = "high".equals(n.optString("l"));
                     long ms = Math.max(3, Math.min(30, n.optInt("s", high ? 15 : 8))) * 1000L;
-                    queue.add(new Pending(new Alert("n" + id, n.optString("t"), n.optString("m"), null, false,
+                    enqueue(new Pending(new Alert("n" + id, n.optString("t"), n.optString("m"), null, false,
                             high ? 0xFFFF9F0A : 0xFF64D2FF, ms), high));
                 }
             } else if (lastNotifId == -1) {
@@ -203,7 +231,7 @@ final class AlertWatcher {
             if (!p.high && (sleeping || !mode.equals("normal") || now - p.queuedAt > INFO_MAX_AGE_MS)) it.remove();   // stale or quiet
             else if (mode.equals("dnd")) it.remove();
         }
-        if (now < busyUntil) return;
+        if (!running || stickyActive || pendingShows.get() > 0 || now < busyUntil) return;
         for (java.util.Iterator<Pending> it = queue.iterator(); it.hasNext(); ) {
             Pending p = it.next();
             if (!p.high && playing) continue;   // info waits until you pause or stop
@@ -229,7 +257,7 @@ final class AlertWatcher {
     private void queueScores() {
         try {
             for (String[] e : Sports.pollLive(ctx)) {
-                queue.add(new Pending(new Alert("s" + System.nanoTime(), e[0], e[1], null, false, 0xFF30D158, 9000), false));
+                enqueue(new Pending(new Alert("s" + System.nanoTime(), e[0], e[1], null, false, 0xFF30D158, 9000), false));
             }
         } catch (Exception ignored) {
         }
@@ -250,7 +278,7 @@ final class AlertWatcher {
                 if (g.optBoolean("live") || until > 11 * 60_000L || until < 8 * 60_000L || sp.getBoolean(key, false)) continue;
                 sp.edit().putBoolean(key, true).apply();
                 String net = g.optString("net");
-                queue.add(new Pending(new Alert("g" + key, g.optString("team") + " kick off in 10 minutes",
+                enqueue(new Pending(new Alert("g" + key, g.optString("team") + " kick off in 10 minutes",
                         (g.optBoolean("home", true) ? "vs " : "at ") + g.optString("opp") + (net.isEmpty() ? "" : " · " + net),
                         null, false, 0xFF30D158, 14000), true));
             }
@@ -258,39 +286,80 @@ final class AlertWatcher {
         }
     }
 
+    private void enqueue(Pending pending) {
+        if (queue.size() >= MAX_PENDING) {
+            int oldest = 0;
+            for (int i = 0; i < queue.size(); i++) {
+                if (!queue.get(i).high) {
+                    oldest = i;
+                    break;
+                }
+            }
+            queue.remove(oldest);
+        }
+        queue.add(pending);
+    }
+
     private void show(Alert a) {
-        if (!Settings.canDrawOverlays(ctx)) return;
+        if (!running || !Settings.canDrawOverlays(ctx)) return;
+        if (a.sticky && a.key.equals(visibleKey)) return;
+        // Reserve the slot during camera IO too; the real duration begins when the card is attached.
+        pendingShows.incrementAndGet();
         Bitmap snap = null;
         if (a.camera != null) {
             byte[] img = Ha.getBytes("/api/camera_proxy/" + a.camera);
-            if (img != null) snap = BitmapFactory.decodeByteArray(img, 0, img.length);
+            if (img != null && running) snap = decodeSnapshot(img);
         }
         final Bitmap bmp = snap;
         main.post(() -> {
-            hide();
-            overlay = build(a, bmp);
-            overlay.setTag(a.sticky);
-            WindowManager wm = (WindowManager) ctx.getSystemService(Context.WINDOW_SERVICE);
-            WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
-                    WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
-                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-                            | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                    PixelFormat.TRANSLUCENT);
-            lp.gravity = Gravity.TOP | Gravity.END;
-            lp.x = (int) (64 * density);
-            lp.y = (int) (48 * density);
             try {
-                wm.addView(overlay, lp);
-            } catch (Exception e) {
-                overlay = null;
-                return;
+                if (!running) {
+                    if (bmp != null) bmp.recycle();
+                    return;
+                }
+                hide();
+                overlay = build(a, bmp);
+                overlay.setTag(a.sticky);
+                WindowManager wm = (WindowManager) ctx.getSystemService(Context.WINDOW_SERVICE);
+                WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                        WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                                | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                        PixelFormat.TRANSLUCENT);
+                lp.gravity = Gravity.TOP | Gravity.END;
+                lp.x = (int) (64 * density);
+                lp.y = (int) (48 * density);
+                try {
+                    wm.addView(overlay, lp);
+                    visibleKey = a.key;
+                    busyUntil = a.sticky ? Long.MAX_VALUE : System.currentTimeMillis() + a.showMs + 800;
+                } catch (Exception e) {
+                    overlay = null;
+                    busyUntil = 0;
+                    return;
+                }
+                overlay.setAlpha(0f);
+                overlay.setTranslationX(24 * density);
+                overlay.animate().alpha(1f).translationX(0f).setDuration(260).start();
+                if (!a.sticky) main.postDelayed(dismissOverlay, a.showMs);
+            } finally {
+                pendingShows.decrementAndGet();
             }
-            overlay.setAlpha(0f);
-            overlay.setTranslationX(24 * density);
-            overlay.animate().alpha(1f).translationX(0f).setDuration(260).start();
-            if (!a.sticky) main.postDelayed(this::hide, a.showMs);
         });
+    }
+
+    /** Decode close to the displayed card size, avoiding a full-resolution camera bitmap in native memory. */
+    private Bitmap decodeSnapshot(byte[] bytes) {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
+        int width = Math.max(1, (int) (360 * density)), height = Math.max(1, (int) (203 * density));
+        options.inSampleSize = 1;
+        while (options.outWidth / options.inSampleSize > width * 2
+                || options.outHeight / options.inSampleSize > height * 2) options.inSampleSize *= 2;
+        options.inJustDecodeBounds = false;
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
     }
 
     private View build(Alert a, Bitmap snap) {
@@ -337,6 +406,9 @@ final class AlertWatcher {
     }
 
     private void hide() {
+        main.removeCallbacks(dismissOverlay);
+        visibleKey = null;
+        busyUntil = 0;
         if (overlay == null) return;
         try {
             ((WindowManager) ctx.getSystemService(Context.WINDOW_SERVICE)).removeView(overlay);

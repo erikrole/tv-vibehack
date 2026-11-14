@@ -7,7 +7,8 @@
     </style>
 
     <!-- Frosted pill, tvOS style. -->
-    <style name="TopButton">
+    <style name="TopButton" parent="TopButtonBase" />
+    <style name="TopButtonBase">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">44dp</item>
         <item name="android:minWidth">44dp</item>
@@ -19,7 +20,6 @@
         <item name="android:textColor">@drawable/pill_text</item>
         <item name="android:textSize">14sp</item>
         <item name="android:fontFamily">@font/inter</item>
-        <item name="android:fontVariationSettings">\'wght\' 650</item>
         <item name="android:letterSpacing">0</item>
         <item name="android:drawablePadding">0dp</item>
         <item name="android:drawableTint">@drawable/pill_text</item>
@@ -28,7 +28,8 @@
     </style>
 
     <!-- Text chip used by the scene row and the Control Center. -->
-    <style name="Chip">
+    <style name="Chip" parent="ChipBase" />
+    <style name="ChipBase">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">44dp</item>
         <item name="android:layout_marginEnd">8dp</item>
@@ -39,23 +40,23 @@
         <item name="android:textColor">@drawable/pill_text</item>
         <item name="android:textSize">13sp</item>
         <item name="android:fontFamily">@font/inter</item>
-        <item name="android:fontVariationSettings">\'wght\' 650</item>
         <item name="android:singleLine">true</item>
         <item name="android:focusable">true</item>
         <item name="android:clickable">true</item>
     </style>
 
-    <style name="CcHeading">
+    <style name="CcHeading" parent="CcHeadingBase" />
+    <style name="CcHeadingBase">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:textColor">#FFFFFFFF</item>
         <item name="android:textSize">26sp</item>
         <item name="android:fontFamily">@font/inter</item>
-        <item name="android:fontVariationSettings">\'wght\' 800</item>
         <item name="android:letterSpacing">-0.02</item>
     </style>
 
-    <style name="CcLabel">
+    <style name="CcLabel" parent="CcLabelBase" />
+    <style name="CcLabelBase">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_marginTop">20dp</item>
@@ -63,6 +64,5 @@
         <item name="android:textColor">#99FFFFFF</item>
         <item name="android:textSize">14sp</item>
         <item name="android:fontFamily">@font/inter</item>
-        <item name="android:fontVariationSettings">\'wght\' 700</item>
     </style>
 </resources>

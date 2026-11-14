@@ -66,12 +66,27 @@ public class PlaybackReporter extends NotificationListenerService {
 
     @Override
     public void onListenerDisconnected() {
-        if (alerts != null) alerts.stop();
+        disconnect();
+    }
+
+    @Override
+    public void onDestroy() {
+        disconnect();
+        handler.removeCallbacksAndMessages(null);
+        super.onDestroy();
+    }
+
+    private void disconnect() {
+        if (alerts != null) {
+            alerts.stop();
+            alerts = null;
+        }
         detachAll();
         if (sessions != null) sessions.removeOnActiveSessionsChangedListener(sessionsListener);
     }
 
     private void refresh() {
+        if (sessions == null) return;
         try {
             attach(sessions.getActiveSessions(me));
         } catch (SecurityException ignored) {
@@ -94,6 +109,7 @@ public class PlaybackReporter extends NotificationListenerService {
     }
 
     /** playing beats paused beats stopped; buffering counts as playing so a stall doesn't brighten the room. */
+    @android.annotation.SuppressLint("WrongConstant") // Some players publish this custom numeric metadata key.
     private void evaluate() {
         String state = "stopped";
         String pkg = "";

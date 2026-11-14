@@ -27,6 +27,7 @@ public class ClockDream extends DreamService {
     private GradientDrawable glow;
     private int colorIndex;
     private int glowColor;
+    private ValueAnimator glowAnimator;
 
     private final Runnable tick = new Runnable() {
         @Override
@@ -70,12 +71,14 @@ public class ClockDream extends DreamService {
     @Override
     public void onDreamingStopped() {
         handler.removeCallbacks(tick);
+        stopAnimations();
         super.onDreamingStopped();
     }
 
     @Override
     public void onDetachedFromWindow() {
         handler.removeCallbacks(tick);
+        stopAnimations();
         super.onDetachedFromWindow();
     }
 
@@ -102,12 +105,19 @@ public class ClockDream extends DreamService {
     }
 
     private void shiftGlow() {
+        if (glowAnimator != null) glowAnimator.cancel();
         int from = glowColor;
         colorIndex = (colorIndex + 1) % PALETTE.length;
         ValueAnimator anim = ValueAnimator.ofObject(new ArgbEvaluator(), from, PALETTE[colorIndex]);
+        glowAnimator = anim;
         anim.setDuration(8000);
         anim.addUpdateListener(a -> setGlow((int) a.getAnimatedValue()));
         anim.start();
+    }
+
+    private void stopAnimations() {
+        if (content != null) content.animate().withEndAction(null).cancel();
+        if (glowAnimator != null) glowAnimator.cancel();
     }
 
     private void setGlow(int color) {

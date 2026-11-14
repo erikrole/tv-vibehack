@@ -2,8 +2,10 @@ package com.gathin.tvhome;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.graphics.Color;
 import android.graphics.Rect;
@@ -25,6 +27,7 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -50,11 +53,11 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * tvOS style home: black, a pinned dock row, an app grid, and one glass highlight that springs between tiles.
+ * Theater-first home: apps, a compact sports strip, and room scenes with predictable remote navigation.
  */
 public class MainActivity extends Activity implements AppAdapter.TileListener {
 
-    /** Tiles per row and dock slots (res/values/config.xml, columns). Set in onCreate. */
+    /** App columns (res/values/config.xml, columns). Set in onCreate. */
     static int COLUMNS = 4;
     private static final long MINUTE_MS = 60_000L;
     private String liveTvPkg;
@@ -63,16 +66,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private RecyclerView grid;
     private FrameLayout root;
     private GlassView glass;
-    private View ambient;
-    private ImageView backdrop;
     private TextView heroName;
-    private int ambientColor;
-    /** The whole backdrop (blurred art plus colour glow) is one small opaque bitmap, scaled up: one cheap full-screen draw. */
-    private android.graphics.Bitmap bdBmp;
-    private int[] bdCur, bdFrom, bdTo;
-    private android.animation.ValueAnimator bdAnim;
-    private float[] glowAlpha;
-    private boolean heroShown;
+    private boolean appsReady;
+    private boolean resumed;
+    private ViewTreeObserver.OnPreDrawListener pendingFocus;
     private TextView greeting;
     private TextView btnWifi;
     private String networkLabel = "";
@@ -83,11 +80,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean ccOpen;
     /** Sleep timer: when it fires the TV is turned off through Home Assistant. Lives as long as the process. */
     private static long sleepAtMs = 0L;
-    private final Runnable sleepFire = () -> {
-        sleepAtMs = 0L;
-        Ha.call("media_player", "turn_off", getString(R.string.ha_tv_entity), (ok, msg) ->
-                Toast.makeText(this, ok ? "Good night" : msg, Toast.LENGTH_LONG).show());
-    };
+    private static final Handler SLEEP_HANDLER = new Handler(Looper.getMainLooper());
+    private static Runnable sleepFire;
     private SpringAnimation springX, springY;
     private float glassTargetX, glassTargetY;
     private View focusedCard;
@@ -100,6 +94,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private float density;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final BroadcastReceiver packageReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            adapter.invalidatePackage(intent.getData() != null ? intent.getData().getSchemeSpecificPart() : null);
+        }
+    };
     /** Refreshes the network pill when the connection changes: at boot Wi-Fi often connects after Home is shown. */
     private final ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
         @Override
@@ -131,11 +131,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         root = findViewById(R.id.root);
         glass = findViewById(R.id.glass);
-        ambient = findViewById(R.id.ambient);
         heroName = findViewById(R.id.heroName);
-        backdrop = findViewById(R.id.backdrop);
-        ambient.setVisibility(View.GONE);   // replaced by the composited backdrop bitmap below
-        initBackdrop();
         greeting = findViewById(R.id.greeting);
         btnWifi = findViewById(R.id.btnWifi);
         btnControl = findViewById(R.id.btnControl);
@@ -148,12 +144,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         ccNotify = findViewById(R.id.ccNotify);
         ccStatus = findViewById(R.id.ccStatus);
         buildScenes();
-        if (sceneRow.getChildCount() > 0) {
-            int firstChip = sceneRow.getChildAt(0).getId();
-            for (int id : new int[]{R.id.btnInputs, R.id.btnWifi, R.id.btnControl, R.id.btnSettings}) {
-                findViewById(id).setNextFocusDownId(firstChip);
-            }
-        }
+        controlCenter.setOnClickListener(v -> closeControlCenter());
         Sports.load(this, this::showGames);
 
         grid = findViewById(R.id.grid);
@@ -163,18 +154,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         grid.addItemDecoration(new DockDecoration(COLUMNS, density));
         grid.setLayoutAnimation(new LayoutAnimationController(
                 AnimationUtils.loadAnimation(this, R.anim.tile_enter), 0.06f));
-        adapter = new AppAdapter(this, this, COLUMNS);
+        adapter = new AppAdapter(this, this);
         grid.setAdapter(adapter);
-
-        // tvOS layout: push the dock row to the bottom of the screen; the grid hides below until you press Down.
-        grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
-            int h = b - t;
-            int dockRow = (int) ((145 + 6 + 12) * density);   // item height plus DockDecoration offsets
-            int want = Math.max(0, h - dockRow - (int) (30 * density));
-            if (grid.getPaddingTop() != want) {
-                grid.setPadding(grid.getPaddingLeft(), want, grid.getPaddingRight(), grid.getPaddingBottom());
-            }
-        });
+        IntentFilter packages = new IntentFilter();
+        packages.addAction(Intent.ACTION_PACKAGE_ADDED);
+        packages.addAction(Intent.ACTION_PACKAGE_REMOVED);
+        packages.addAction(Intent.ACTION_PACKAGE_CHANGED);
+        packages.addAction(Intent.ACTION_PACKAGE_REPLACED);
+        packages.addDataScheme("package");
+        registerReceiver(packageReceiver, packages);
 
         // Keep the glass glued to its tile while the grid scrolls.
         grid.addOnScrollListener(new RecyclerView.OnScrollListener() {
@@ -186,7 +174,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 if (focusedCard != null && focusedCard.isAttachedToWindow()) {
                     Rect r = new Rect(0, 0, focusedCard.getWidth(), focusedCard.getHeight());
                     root.offsetDescendantRectToMyCoords(focusedCard, r);
-                    glassTargetY = r.exactCenterY() - glass.getHeight() / 2f;
+                    glassTargetY = r.bottom - 2 * density;
                 } else {
                     glassTargetY -= dy;
                 }
@@ -199,7 +187,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         springX = new SpringAnimation(glass, DynamicAnimation.TRANSLATION_X);
         springY = new SpringAnimation(glass, DynamicAnimation.TRANSLATION_Y);
         for (SpringAnimation s : new SpringAnimation[]{springX, springY}) {
-            s.setSpring(new SpringForce().setStiffness(320f).setDampingRatio(0.86f));
+            s.setSpring(new SpringForce().setStiffness(700f).setDampingRatio(1f));
         }
 
         View btnInputs = findViewById(R.id.btnInputs);
@@ -213,6 +201,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         View.OnKeyListener pillKeys = (v, keyCode, event) -> {
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                focusTile(lastFocused);
+                return true;
+            }
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v.getId() == R.id.btnInputs) return true;
             return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == R.id.btnSettings;
         };
@@ -244,30 +236,41 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onResume() {
         super.onResume();
+        resumed = true;
         root.animate().cancel();
-        root.setScaleX(1.06f);
-        root.setScaleY(1.06f);
-        root.setAlpha(0f);
-        root.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(320)
-                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+        root.setScaleX(1f);
+        root.setScaleY(1f);
+        root.setAlpha(1f);
         glassShown = false;
         glass.setAlpha(0f);
-        heroShown = false;
         infoRow.setAlpha(1f);
-        heroName.setAlpha(0f);
-        snapBackdrop(null);
-        // Read these before reload(): rebinding can move focus to the first tile and overwrite them.
-        final String returnKey = lastFocusedKey;
-        final int returnSlot = lastFocused;
         adapter.reload();
-        grid.scheduleLayoutAnimation();
         updateGreeting();
         updateWifiLabel();
         handler.postDelayed(minuteTick, MINUTE_MS);
 
-        // Return to the app we left from, or the same slot if that app is gone. Always refocus: after
-        // reload() the view that holds focus may no longer show the app it had.
-        grid.post(() -> {
+        restoreTileFocus();
+    }
+
+    @Override
+    public void onAppsLoaded(boolean changed) {
+        boolean firstLoad = !appsReady;
+        appsReady = true;
+        heroName.setText(adapter.getItemCount() == 0 ? R.string.no_apps : R.string.app_options_hint);
+        if (!resumed || ccOpen || !changed) return;
+        if (firstLoad) grid.scheduleLayoutAnimation();
+        View focus = getCurrentFocus();
+        if (firstLoad || focus == null || focus.getId() == R.id.card) {
+            // Keep the selected app when a package changes while the list owns focus.
+            restoreTileFocus();
+        }
+    }
+
+    private void restoreTileFocus() {
+        final String returnKey = lastFocusedKey;
+        final int returnSlot = lastFocused;
+        handler.post(() -> {
+            if (!resumed || ccOpen) return;
             int pos = adapter.positionOf(returnKey);
             focusTile(pos >= 0 ? pos : returnSlot);
         });
@@ -275,23 +278,42 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     protected void onPause() {
+        resumed = false;
         super.onPause();
         handler.removeCallbacks(minuteTick);
+        cancelPendingFocus();
+        grid.stopScroll();
+        root.animate().cancel();
+        heroName.animate().withEndAction(null).cancel();
+        infoRow.animate().cancel();
+        glass.animate().cancel();
+        springX.cancel();
+        springY.cancel();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        unregisterReceiver(packageReceiver);
+        handler.removeCallbacksAndMessages(null);
+        cancelPendingFocus();
+        adapter.close();
+        grid.setAdapter(null);
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         if (cm != null) cm.unregisterNetworkCallback(networkCallback);
     }
 
-    /** Zoom-out launch: the home screen shrinks and fades as the app opens, and snaps back on return. */
+    /** Brief launch fade; returning Home restores the canvas immediately. */
     @Override
     public void onLaunch(Runnable go) {
-        root.animate().scaleX(0.92f).scaleY(0.92f).alpha(0f).setDuration(200)
+        root.animate().cancel();
+        root.animate().alpha(0f).setDuration(140)
                 .setInterpolator(new android.view.animation.AccelerateInterpolator(1.2f))
-                .withEndAction(go).start();
+                .withEndAction(() -> {
+                    go.run();
+                    // A failed launch never pauses us: make the home screen usable again.
+                    if (resumed) root.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(180).start();
+                }).start();
     }
 
     @Override
@@ -325,18 +347,22 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             chip.setOnKeyListener((v, keyCode, event) -> {
                 if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
                 if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {   // up from the scene row goes to the top-bar pills
-                    findViewById(R.id.btnInputs).requestFocus();
+                    focusTile(lastFocused);
                     return true;
                 }
-                return keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v == sceneRow.getChildAt(0);   // don't fall off the left edge
+                return keyCode == KeyEvent.KEYCODE_DPAD_DOWN
+                        || (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v == sceneRow.getChildAt(0))
+                        || (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v == sceneRow.getChildAt(sceneRow.getChildCount() - 1));
             });
             chip.setLayoutParams(chipParams());
+            chip.getLayoutParams().height = (int) (36 * density);
             chipFocus(chip);
             sceneRow.addView(chip);
         }
     }
 
     private void showGames(java.util.List<Sports.Game> games) {
+        if (isDestroyed()) return;
         sportsRow.removeAllViews();
         if (games == null || games.isEmpty()) {
             sportsRow.setVisibility(View.GONE);
@@ -357,8 +383,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     : countdown(g.startMs) + " · " + new SimpleDateFormat("EEE h:mm a", Locale.US).format(new Date(g.startMs));
             ((TextView) card.findViewById(R.id.when)).setText(when);
             if (g.live) {
-                card.setBackgroundResource(R.drawable.live_bg);
-                ((TextView) card.findViewById(R.id.team)).setTextColor(0xFFFF8A80);
+                ((TextView) card.findViewById(R.id.team)).setTextColor(0xFF80D8AC);
             }
             sportsRow.addView(card);
             shown++;
@@ -478,17 +503,30 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         int[] minutes = {15, 30, 60, 90};
         for (int m : minutes) {
             ccSleep.addView(ccChip(m + " min", () -> {
-                handler.removeCallbacks(sleepFire);
+                cancelSleepTimer();
                 sleepAtMs = System.currentTimeMillis() + m * MINUTE_MS;
-                handler.postDelayed(sleepFire, m * MINUTE_MS);
+                Context app = getApplicationContext();
+                String entity = getString(R.string.ha_tv_entity);
+                sleepFire = () -> {
+                    sleepAtMs = 0L;
+                    sleepFire = null;
+                    Ha.call("media_player", "turn_off", entity, (ok, msg) ->
+                            Toast.makeText(app, ok ? "Good night" : msg, Toast.LENGTH_LONG).show());
+                };
+                SLEEP_HANDLER.postDelayed(sleepFire, m * MINUTE_MS);
                 updateCcStatus();
             }));
         }
         ccSleep.addView(ccChip("Off", () -> {
-            handler.removeCallbacks(sleepFire);
-            sleepAtMs = 0L;
+            cancelSleepTimer();
             updateCcStatus();
         }));
+    }
+
+    private static void cancelSleepTimer() {
+        if (sleepFire != null) SLEEP_HANDLER.removeCallbacks(sleepFire);
+        sleepFire = null;
+        sleepAtMs = 0L;
     }
 
     /** Notification mode, read by the alert watcher: normal, quiet for an hour, or do-not-disturb until switched back. */
@@ -527,7 +565,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         ccStatus.setText(s);
     }
 
-    // ---- glass highlight -------------------------------------------------------------------------
+    // ---- selection marker -------------------------------------------------------------------------
 
     @Override
     public void onTileFocused(int position, View card) {
@@ -537,18 +575,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Tile rect in root coordinates, using layout positions (ignores the scale animation).
         Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
         root.offsetDescendantRectToMyCoords(card, r);
-        float pad = 6f * density;        // matches GlassView's glow inset
-        float w = card.getWidth() * AppAdapter.FOCUS_SCALE + 2 * pad;
-        float h = card.getHeight() * AppAdapter.FOCUS_SCALE + 2 * pad;
+        float pad = 6f * density;
+        float w = 28f * density, h = 2f * density;
         float x = r.exactCenterX() - w / 2f;
-        float y = r.exactCenterY() - h / 2f;
-
+        float y = r.bottom - h;
         ViewGroup.LayoutParams lp = glass.getLayoutParams();
         if (lp.width != (int) w || lp.height != (int) h) {
             lp.width = (int) w;
             lp.height = (int) h;
             glass.setLayoutParams(lp);
-            glass.setRadius(16f * density * AppAdapter.FOCUS_SCALE + pad);
+            glass.setRadius(density);
         }
         glassTargetX = x;
         glassTargetY = y;
@@ -564,132 +600,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             springY.animateToFinalPosition(y);
         }
         View item = (View) card.getParent();
-        if (position < COLUMNS) {
-            // Dock: park it at the bottom of the screen and show the top shelf for this app.
-            int decoratedTop = item.getTop() - (int) (6 * density);
-            int dy = decoratedTop - grid.getPaddingTop();
-            if (Math.abs(dy) > 1) grid.smoothScrollBy(0, dy);
-            showHero(position, r.top - dy);
-        } else {
-            hideHero();
-            // Scroll just enough so the whole glass (not only the tile) is visible.
-            Rect want = new Rect(0, -(int) pad * 2, item.getWidth(), item.getHeight() + (int) pad);
-            grid.requestChildRectangleOnScreen(item, want, false);
-        }
-    }
-
-    // ---- top shelf -------------------------------------------------------------------------------
-
-    private void showHero(int position, float dockTopInRoot) {
-        String label = adapter.labelAt(position);
-        int color = adapter.ambientColorAt(position);
-        float y = dockTopInRoot - 14 * density - 26 * density - heroName.getHeight();
-        boolean changed = !label.contentEquals(heroName.getText());
-        if (changed || !heroShown) updateBackdrop(position, color);
-
-        if (!heroShown) {
-            heroName.setText(label);
-            heroName.setY(y);
-            heroName.setTranslationX(0f);
-            heroName.animate().alpha(1f).setDuration(260).start();
-            ambientColor = color;
-            infoRow.animate().alpha(1f).setDuration(260).start();
-            heroShown = true;
-        } else if (changed) {
-            heroName.animate().alpha(0f).translationX(-12 * density).setDuration(120).withEndAction(() -> {
-                heroName.setText(label);
-                heroName.setY(y);
-                heroName.setTranslationX(12 * density);
-                heroName.animate().alpha(1f).translationX(0f).setDuration(200).start();
-            }).start();
-            ambientColor = color;
-        } else {
-            heroName.setY(y);
-        }
-    }
-
-    private void initBackdrop() {
-        bdBmp = android.graphics.Bitmap.createBitmap(Blur.W, Blur.H, android.graphics.Bitmap.Config.ARGB_8888);
-        android.graphics.drawable.BitmapDrawable d = new android.graphics.drawable.BitmapDrawable(getResources(), bdBmp);
-        d.setFilterBitmap(true);
-        backdrop.setScaleType(ImageView.ScaleType.FIT_XY);
-        backdrop.setImageDrawable(d);
-        backdrop.setAlpha(1f);
-        int n = Blur.W * Blur.H;
-        bdCur = new int[n];
-        bdFrom = new int[n];
-        bdTo = new int[n];
-        // Glow falloff: the old radial gradient (centre 32%/42%, radius 62% of the width, alpha 0x5C -> 0x26 -> 0).
-        glowAlpha = new float[n];
-        float rad = 0.62f * Blur.W;
-        for (int y = 0; y < Blur.H; y++) {
-            for (int x = 0; x < Blur.W; x++) {
-                float dx = x - 0.32f * Blur.W, dy = y - 0.42f * Blur.H;
-                float t = (float) Math.sqrt(dx * dx + dy * dy) / rad;
-                float a = t < 0.5f ? 0x5C + (0x26 - 0x5C) * (t / 0.5f) : t < 1f ? 0x26 * (1f - (t - 0.5f) / 0.5f) : 0f;
-                glowAlpha[y * Blur.W + x] = a / 255f;
-            }
-        }
-        snapBackdrop(null);
-    }
-
-    /** Backdrop target: the app's blurred art with its colour glow over it (opaque, so nothing needs blending). */
-    private int[] composeBackdrop(int[] art, int color) {
-        int[] out = new int[Blur.W * Blur.H];
-        int cr = (color >> 16) & 0xFF, cg = (color >> 8) & 0xFF, cb = color & 0xFF;
-        for (int i = 0; i < out.length; i++) {
-            int p = art != null ? art[i] : 0xFF000000;
-            float a = glowAlpha[i];
-            int r = (int) (((p >> 16) & 0xFF) * (1 - a) + cr * a);
-            int g = (int) (((p >> 8) & 0xFF) * (1 - a) + cg * a);
-            int b = (int) ((p & 0xFF) * (1 - a) + cb * a);
-            out[i] = 0xFF000000 | r << 16 | g << 8 | b;
-        }
-        return out;
-    }
-
-    private void snapBackdrop(int[] target) {
-        if (bdAnim != null) bdAnim.cancel();
-        if (target == null) java.util.Arrays.fill(bdCur, 0xFF000000);
-        else System.arraycopy(target, 0, bdCur, 0, bdCur.length);
-        bdBmp.setPixels(bdCur, 0, Blur.W, 0, 0, Blur.W, Blur.H);
-        backdrop.invalidate();
-    }
-
-    /** Crossfades the backdrop to a new target by blending the two tiny bitmaps. */
-    private void fadeBackdropTo(int[] target, long ms) {
-        if (bdAnim != null) bdAnim.cancel();
-        System.arraycopy(bdCur, 0, bdFrom, 0, bdCur.length);
-        System.arraycopy(target, 0, bdTo, 0, bdTo.length);
-        bdAnim = android.animation.ValueAnimator.ofFloat(0f, 1f);
-        bdAnim.setDuration(ms);
-        bdAnim.setInterpolator(new android.view.animation.DecelerateInterpolator(1.4f));
-        bdAnim.addUpdateListener(a -> {
-            float t = (float) a.getAnimatedValue();
-            int k = (int) (t * 256);
-            for (int i = 0; i < bdCur.length; i++) {
-                int f = bdFrom[i], g = bdTo[i];
-                int r = (((f >> 16) & 0xFF) * (256 - k) + ((g >> 16) & 0xFF) * k) >> 8;
-                int gr = (((f >> 8) & 0xFF) * (256 - k) + ((g >> 8) & 0xFF) * k) >> 8;
-                int b = ((f & 0xFF) * (256 - k) + (g & 0xFF) * k) >> 8;
-                bdCur[i] = 0xFF000000 | r << 16 | gr << 8 | b;
-            }
-            bdBmp.setPixels(bdCur, 0, Blur.W, 0, 0, Blur.W, Blur.H);
-            backdrop.invalidate();
-        });
-        bdAnim.start();
-    }
-
-    private void updateBackdrop(int position, int color) {
-        fadeBackdropTo(composeBackdrop(adapter.backdropAt(position), color), 450);
-    }
-
-    private void hideHero() {
-        if (!heroShown) return;
-        heroShown = false;
-        heroName.animate().alpha(0f).setDuration(160).start();
-        infoRow.animate().alpha(0f).setDuration(160).start();
-        fadeBackdropTo(composeBackdrop(null, 0), 300);
+        Rect want = new Rect(0, -(int) pad * 2, item.getWidth(), item.getHeight() + (int) pad);
+        grid.requestChildRectangleOnScreen(item, want, false);
     }
 
     private void hideGlass() {
@@ -701,15 +613,27 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     // ---- navigation ------------------------------------------------------------------------------
 
     @Override
-    public boolean onTileVerticalKey(int position, int keyCode) {
+    public boolean onTileDirectionalKey(int position, int keyCode) {
         int count = adapter.getItemCount();
         int target;
-        if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
-            if (position < COLUMNS) return false;          // dock row: let focus move to the top bar
+        if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
+            if (position % COLUMNS == 0) return true;
+            target = position - 1;
+        } else if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            if (position % COLUMNS == COLUMNS - 1 || position == count - 1) return true;
+            target = position + 1;
+        } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+            if (position < COLUMNS) {
+                findViewById(R.id.btnInputs).requestFocus();
+                return true;
+            }
             target = position - COLUMNS;
         } else {
             int lastRowStart = ((count - 1) / COLUMNS) * COLUMNS;
-            if (position >= lastRowStart) return true;     // already on the last row: stay put
+            if (position >= lastRowStart) {
+                if (sceneRow.getChildCount() > 0) sceneRow.getChildAt(0).requestFocus();
+                return true;
+            }
             target = Math.min(position + COLUMNS, count - 1);
         }
         focusTile(target);
@@ -717,28 +641,38 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void focusTile(int position) {
+        cancelPendingFocus();
         if (adapter.getItemCount() == 0) return;
         final int pos = Math.max(0, Math.min(position, adapter.getItemCount() - 1));
         RecyclerView.ViewHolder vh = grid.findViewHolderForAdapterPosition(pos);
-        if (vh != null) {
+        if (vh != null && !grid.hasPendingAdapterUpdates()) {
             View card = vh.itemView.findViewById(R.id.card);
             // Already focused (e.g. back from an app): no focus change fires, so restore the glass by hand.
             if (card.isFocused()) onTileFocused(pos, card);
             else card.requestFocus();
             return;
         }
-        // Not laid out yet: scroll there, then focus once the scroll settles.
-        grid.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrollStateChanged(@NonNull RecyclerView rv, int newState) {
-                if (newState != RecyclerView.SCROLL_STATE_IDLE) return;
-                rv.removeOnScrollListener(this);
-                RecyclerView.ViewHolder h = rv.findViewHolderForAdapterPosition(pos);
-                View target = h != null ? h.itemView.findViewById(R.id.card) : rv.getChildAt(0);
-                if (target != null) target.requestFocus();
+        // One pending target, resolved after layout. Repeated keys replace it instead of accumulating listeners.
+        pendingFocus = () -> {
+            cancelPendingFocus();
+            if (!resumed || ccOpen) return true;
+            RecyclerView.ViewHolder holder = grid.findViewHolderForAdapterPosition(pos);
+            if (holder != null) {
+                View card = holder.itemView.findViewById(R.id.card);
+                if (card.isFocused()) onTileFocused(pos, card);
+                else card.requestFocus();
             }
-        });
-        grid.smoothScrollToPosition(pos);
+            return true;
+        };
+        grid.getViewTreeObserver().addOnPreDrawListener(pendingFocus);
+        grid.scrollToPosition(pos);
+        grid.postInvalidateOnAnimation();
+    }
+
+    private void cancelPendingFocus() {
+        if (pendingFocus == null) return;
+        if (grid.getViewTreeObserver().isAlive()) grid.getViewTreeObserver().removeOnPreDrawListener(pendingFocus);
+        pendingFocus = null;
     }
 
     // ---- top bar ---------------------------------------------------------------------------------
@@ -747,7 +681,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private String pillLabel(TextView pill) {
         if (pill.getId() == R.id.btnInputs) return getString(R.string.inputs);
         if (pill.getId() == R.id.btnWifi) return networkLabel;
-        if (pill.getId() == R.id.btnControl) return "Control Center";
+        if (pill.getId() == R.id.btnControl) return getString(R.string.room_controls);
         return getString(R.string.settings);
     }
 
@@ -850,7 +784,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 CharSequence l = info.loadLabel(this);
                 String label = l == null ? info.getId() : l.toString();
                 boolean hdmi = info.getType() == TvInputInfo.TYPE_HDMI;
-                if (hdmi && !label.toUpperCase().contains("HDMI")) label = "HDMI " + label;
+                if (hdmi && !label.toUpperCase(Locale.ROOT).contains("HDMI")) label = "HDMI " + label;
                 final String id = info.getId();
                 int state = hdmi && hdmiStateBogus ? -1 : tim.getInputState(id);
                 if (!hdmi && rows.getChildCount() > 0 && !sawNonHdmi) addSeparator(rows);

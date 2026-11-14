@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="TopButton" parent="TopButtonBase">
+        <item name="android:fontVariationSettings">\'wght\' 650</item>
+    </style>
+    <style name="Chip" parent="ChipBase">
+        <item name="android:fontVariationSettings">\'wght\' 650</item>
+    </style>
+    <style name="CcHeading" parent="CcHeadingBase">
+        <item name="android:fontVariationSettings">\'wght\' 800</item>
+    </style>
+    <style name="CcLabel" parent="CcLabelBase">
+        <item name="android:fontVariationSettings">\'wght\' 700</item>
+    </style>
+</resources>

@@ -19,4 +19,12 @@
     <string name="not_available">Auf diesem TV nicht verfügbar</string>
     <string name="cant_open">%1$s lässt sich nicht öffnen</string>
     <string name="date_format">EEEE, d. MMMM</string>
+    <string name="dream_name">Uhr</string>
+    <string name="watch">Ansehen</string>
+    <string name="room">Raum</string>
+    <string name="room_controls">Raumsteuerung</string>
+    <string name="sleep_timer">Sleep-Timer</string>
+    <string name="notifications">Benachrichtigungen</string>
+    <string name="app_options_hint">OK für App-Optionen gedrückt halten</string>
+    <string name="no_apps">Keine TV-Apps gefunden. Apps aus dem Play Store installieren.</string>
 </resources>
