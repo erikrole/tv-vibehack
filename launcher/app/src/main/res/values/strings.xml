@@ -18,6 +18,13 @@
     <string name="offline">Offline</string>
     <string name="not_available">Not available on this TV</string>
     <string name="cant_open">Can\'t open %1$s</string>
-    <string name="date_format">EEEE  d MMMM</string>
+    <string name="date_format">EEEE, MMMM d</string>
     <string name="dream_name">Clock</string>
+    <string name="watch">Watch</string>
+    <string name="room">Room</string>
+    <string name="room_controls">Room controls</string>
+    <string name="sleep_timer">Sleep timer</string>
+    <string name="notifications">Notifications</string>
+    <string name="app_options_hint">Hold OK for app options</string>
+    <string name="no_apps">No TV apps found. Install apps from the Play Store.</string>
 </resources>
